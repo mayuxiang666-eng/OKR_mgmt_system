@@ -1,0 +1,26 @@
+{
+  "name": "okr-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10",
+  "workspaces": [
+    "apps/web",
+    "apps/api"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm --workspace apps/api run dev\" \"npm --workspace apps/web run dev\"",
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "lint": "npm --workspace apps/api run lint && npm --workspace apps/web run lint",
+    "format": "npm --workspace apps/api run format && npm --workspace apps/web run format",
+    "prisma:generate": "npm --workspace apps/api run prisma:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "@types/fs-extra": "^11.0.4",
+    "fs-extra": "^11.3.4"
+  }
+}

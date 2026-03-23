@@ -1,0 +1,249 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id          String        @id @default(cuid())
+  name        String
+  timezone    String        @default("UTC")
+  departments Department[]
+  users       User[]
+  cycles      OkrCycle[]
+  integrations Integration[]
+  createdAt   DateTime      @default(now())
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id])
+  orgId     String
+  name      String
+  parentId  String?  @db.VarChar(191)
+  teams     Team[]
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String
+  dept      Department @relation(fields: [deptId], references: [id])
+  deptId    String
+  parentId  String?  @db.VarChar(191)
+  users     User[]
+  objectives Objective[]
+  projects   Project[]
+  initiatives Initiative[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  displayName String
+  role      String
+  org       Organization @relation(fields: [orgId], references: [id])
+  orgId     String
+  dept      Department? @relation(fields: [deptId], references: [id])
+  deptId    String?
+  teamId    String?
+  team      Team? @relation(fields: [teamId], references: [id])
+  managerId String?
+  manager   User?    @relation("ManagerReports", fields: [managerId], references: [id])
+  reports   User[]   @relation("ManagerReports")
+  objectives Objective[]
+  checkins   Checkin[]
+  initiatives Initiative[]
+  tasks      Task[]
+  auditLogs  AuditLog[]
+  reviews    Review[]
+}
+
+model OkrCycle {
+  id        String   @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id])
+  orgId     String
+  name      String
+  type      String
+  startDate DateTime
+  endDate   DateTime
+  status    String
+  objectives Objective[]
+  reviews    Review[]
+}
+
+model Objective {
+  id         String   @id @default(cuid())
+  org        Organization @relation(fields: [orgId], references: [id])
+  orgId      String
+  cycle      OkrCycle @relation(fields: [cycleId], references: [id])
+  cycleId    String
+  owner      User?    @relation(fields: [ownerUserId], references: [id])
+  ownerUserId String?
+  ownerTeam  Team?    @relation(fields: [ownerTeamId], references: [id])
+  ownerTeamId String?
+  title      String
+  category   String
+  priority   String
+  status     String
+  startDate  DateTime?
+  dueDate    DateTime?
+  description String?
+  parentObjectiveId String?
+  parent     Objective? @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
+  children   Objective[] @relation("ObjectiveHierarchy")
+  progressCached   Float? @default(0)
+  confidenceCached Float? @default(0)
+  lastReviewDate   DateTime?
+  plannedNextReviewDate DateTime?
+  keyResults KeyResult[]
+  reviews    Review[]
+  initiatives Initiative[]
+  alignmentsAsParent Alignment[] @relation("AlignmentParent")
+  alignmentsAsChild  Alignment[] @relation("AlignmentChild")
+}
+
+model KeyResult {
+  id        String   @id @default(cuid())
+  objective Objective @relation(fields: [objectiveId], references: [id])
+  objectiveId String
+  title     String
+  metricType String
+  unit      String?
+  target    Float
+  baseline  Float?
+  current   Float?
+  forecast  Float?
+  weight    Float   @default(1)
+  progress  Float   @default(0)
+  confidence Float  @default(0.5)
+  status    String  @default("on_track")
+  calculationMode String @default("manual")
+  contributionSource Json?
+  lastCheckin   Checkin? @relation("LastCheckin", fields: [lastCheckinId], references: [id])
+  lastCheckinId String?
+  initiatives Initiative[]
+  projects   Project[]
+  checkins   Checkin[]
+  reviews    Review[]
+  tasks      Task[]
+}
+
+model Initiative {
+  id        String   @id @default(cuid())
+  objective Objective? @relation(fields: [objectiveId], references: [id])
+  objectiveId String?
+  kr         KeyResult? @relation(fields: [krId], references: [id])
+  krId      String?
+  name      String
+  type      String?
+  ownerUser User?   @relation(fields: [ownerUserId], references: [id])
+  ownerUserId String?
+  ownerTeam Team?   @relation(fields: [ownerTeamId], references: [id])
+  ownerTeamId String?
+  startDate DateTime?
+  dueDate   DateTime?
+  status    String?
+  contributionWeight Float? @default(0.5)
+  progress  Float? @default(0)
+  health    String? @default("on_track")
+  tasks     Task[]
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  ownerTeam Team?   @relation(fields: [ownerTeamId], references: [id])
+  ownerTeamId String?
+  startDate DateTime?
+  dueDate   DateTime?
+  status    String?
+  progress  Float? @default(0)
+  kr        KeyResult? @relation(fields: [krId], references: [id])
+  krId      String?
+  tasks     Task[]
+}
+
+model Task {
+  id        String   @id @default(cuid())
+  initiative Initiative? @relation(fields: [initiativeId], references: [id])
+  initiativeId String?
+  kr         KeyResult? @relation(fields: [krId], references: [id])
+  krId       String?
+  title      String
+  status     String
+  assignee   User?   @relation(fields: [assigneeId], references: [id])
+  assigneeId String?
+  startDate  DateTime?
+  dueDate    DateTime?
+  effortEstimate Float?
+  effortSpent    Float?
+  progress   Float? @default(0)
+  milestoneFlag Boolean @default(false)
+}
+
+model Checkin {
+  id        String   @id @default(cuid())
+  kr        KeyResult @relation(fields: [krId], references: [id])
+  krId      String
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  weekStartDate DateTime
+  current   Float?
+  forecast  Float?
+  confidence Float?
+  risk      String?
+  blocker   String?
+  comment   String?
+  autoData  Json?
+  lastOfKR  KeyResult[] @relation("LastCheckin")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  objective Objective? @relation(fields: [objectiveId], references: [id])
+  objectiveId String?
+  kr        KeyResult? @relation(fields: [krId], references: [id])
+  krId      String?
+  cycle     OkrCycle  @relation(fields: [cycleId], references: [id])
+  cycleId   String
+  reviewer  User      @relation(fields: [reviewerId], references: [id])
+  reviewerId String
+  score     Float?
+  comment   String?
+  actionItems Json?
+  reviewedAt DateTime @default(now())
+}
+
+model Alignment {
+  id        String   @id @default(cuid())
+  parent    Objective @relation("AlignmentParent", fields: [parentObjectiveId], references: [id])
+  parentObjectiveId String
+  child     Objective @relation("AlignmentChild", fields: [childObjectiveId], references: [id])
+  childObjectiveId String
+  relation  String
+  weight    Float?
+}
+
+model Integration {
+  id        String   @id @default(cuid())
+  org       Organization @relation(fields: [orgId], references: [id])
+  orgId     String
+  type      String
+  config    Json
+  status    String
+  lastSyncedAt DateTime?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  entityType String
+  entityId  String
+  action    String
+  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId   String?
+  diff      Json?
+  createdAt DateTime @default(now())
+}

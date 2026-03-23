@@ -1,0 +1,13 @@
+node_modules
+.next
+.turbo
+out
+dist
+npm-debug.log*
+.env
+.env.*
+.DS_Store
+coverage
+.idea
+.vscode
+*.tgz
