@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
 import { useOkrStore } from '../../../lib/store';
 import { notFound } from 'next/navigation';
-import { Target, ArrowLeft, Calendar, User, AlignLeft, AlertTriangle, Plus, Trash, CheckCircle2, ChevronRight, Edit3, Save, X, Download, ExternalLink } from 'lucide-react';
+import { Target, ArrowLeft, Calendar, User, AlignLeft, AlertTriangle, Plus, Trash, CheckCircle2, ChevronRight, Edit3, Save, X, Download, ExternalLink, Clock, History, TrendingUp, MessageSquare } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../../lib/utils';
 import { useState, useMemo, useEffect } from 'react';
@@ -477,30 +477,73 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
                </form>
             </div>
             
-            <div className="space-y-4 pl-2 border-l-2 border-gray-100 ml-4 relative">
+            <div className="relative space-y-6 before:absolute before:inset-y-0 before:left-4 before:block before:w-0.5 before:bg-gradient-to-b before:from-orange-100 before:via-gray-100 before:to-transparent ml-4">
               {obj.history?.length === 0 ? (
-                <div className="py-4 pl-6 text-sm text-gray-400 italic">{t('detailNoCheckinHistory')}</div>
+                <div className="py-8 pl-12 text-sm text-gray-400 italic flex items-center gap-3 bg-gray-50/50 rounded-xl border border-dashed border-gray-200">
+                  <Clock className="w-5 h-5 text-gray-300" />
+                  {t('detailNoCheckinHistory')}
+                </div>
               ) : (
                 obj.history?.map((log, i) => (
-                  <div key={log.id} className="relative pl-8 py-2">
-                    <div className="absolute -left-[21px] top-4 w-[10px] h-[10px] bg-white border-2 border-gray-300 rounded-full"></div>
-                    <div className={cn("bg-white border rounded-xl shadow-sm transition-shadow p-5", log.type === 'field-update' ? "border-blue-100 bg-blue-50/20" : "border-gray-100")}>
-                       <div className="flex justify-between items-start mb-3">
-                         <div className="flex items-center gap-3">
-                           <div className="w-8 h-8 rounded-full bg-gray-800 text-white flex justify-center items-center text-xs font-bold shrink-0">{log.author.charAt(0) || 'U'}</div>
-                           <div>
-                             <p className="text-sm font-bold text-gray-900">{log.author}</p>
-                             <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">{log.timestamp}</p>
-                           </div>
-                         </div>
-                         {log.type !== 'field-update' && log.status && (
-                           <div className="flex items-center gap-3">
-                             <span className={cn("px-2.5 py-1 text-[10px] font-bold tracking-wider uppercase rounded-md", getStatusClasses(log.status))}>{statusText(log.status)}</span>
-                             <span className="text-lg font-black text-gray-900">{log.value}%</span>
-                           </div>
-                         )}
-                       </div>
-                       <p className={cn("text-sm font-medium leading-relaxed whitespace-pre-wrap", log.type === 'field-update' ? "text-blue-800" : "text-gray-600")}>{log.comment}</p>
+                  <div key={log.id} className="relative pl-12 group">
+                    {/* Timeline Marker */}
+                    <div className={cn(
+                      "absolute left-0 top-6 -translate-x-1/2 w-8 h-8 rounded-full border-2 border-white shadow-sm flex items-center justify-center z-10 transition-transform group-hover:scale-110",
+                      log.type === 'field-update' ? "bg-blue-500 text-white" : "bg-[#D97706] text-white"
+                    )}>
+                      {log.type === 'field-update' ? (
+                        <History className="w-4 h-4" />
+                      ) : (
+                        <TrendingUp className="w-4 h-4" />
+                      )}
+                    </div>
+
+                    {/* Timeline Card */}
+                    <div className={cn(
+                      "bg-white border rounded-2xl shadow-sm hover:shadow-md transition-all p-6",
+                      log.type === 'field-update' ? "border-blue-100 bg-blue-50/10" : "border-gray-100"
+                    )}>
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-900 text-white flex justify-center items-center text-sm font-black shadow-inner">
+                            {log.author.charAt(0).toUpperCase() || 'U'}
+                          </div>
+                          <div>
+                            <p className="text-[15px] font-bold text-gray-900 leading-none mb-1">{log.author}</p>
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                              <Clock className="w-3 h-3" />
+                              {log.timestamp}
+                            </div>
+                          </div>
+                        </div>
+
+                        {log.type !== 'field-update' && log.status && (
+                          <div className="flex items-center gap-2 bg-gray-50 p-1.5 rounded-xl border border-gray-100/50">
+                            {log.value !== undefined && (
+                              <div className="px-3 py-1 bg-white rounded-lg shadow-sm">
+                                <span className="text-lg font-black text-gray-900">{log.value}</span>
+                                <span className="text-[10px] font-bold text-gray-400 ml-0.5">%</span>
+                              </div>
+                            )}
+                            <span className={cn("px-2.5 py-1 text-[10px] font-black tracking-widest uppercase rounded-lg", getStatusClasses(log.status))}>
+                              {statusText(log.status)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="relative">
+                        {log.type === 'field-update' ? (
+                          <div className="pl-4 border-l-2 border-blue-200">
+                             <p className="text-sm font-medium leading-relaxed text-blue-900 whitespace-pre-wrap">{log.comment}</p>
+                          </div>
+                        ) : (
+                          <div className="flex gap-3">
+                             <MessageSquare className="w-4 h-4 text-gray-300 mt-0.5 shrink-0" />
+                             <p className="text-[15px] font-medium leading-relaxed text-gray-600 whitespace-pre-wrap">{log.comment}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))
