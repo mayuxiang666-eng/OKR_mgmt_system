@@ -4,6 +4,7 @@ import { useOkrStore } from '../lib/store';
 import { useState } from 'react';
 import { X, Plus, Trash, ChevronDown } from 'lucide-react';
 import { OkrCategory, OkrPriority } from '../lib/types';
+import { createKeyResult, createObjective } from '../lib/api';
 
 export default function NewObjectiveModal() {
   const { objectives, isNewObjModalOpen, setNewObjModalOpen, addObjective, users, currentUser } = useOkrStore();
@@ -30,6 +31,8 @@ export default function NewObjectiveModal() {
   
   // Dynamic KRs state
   const [krs, setKrs] = useState([{ title: '', targetValue: 100, unit: '%', confidenceScore: 5, businessNeed: '' }]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!isNewObjModalOpen) return null;
 
@@ -46,64 +49,107 @@ export default function NewObjectiveModal() {
     updated[index] = { ...updated[index], [field]: value };
     setKrs(updated);
   };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const objId = `obj-${Date.now()}`;
-    const generatedKrs = krs.filter(kr => kr.title.trim() !== '').map((kr, idx) => ({
-      id: `${objId}-kr-${idx+1}`,
-      title: kr.title,
-      status: 'Not started' as const,
-      priority,
-      category,
-      assignedTo: assignedTo.join(' ; '),
-      startDate: startDate || new Date().toISOString().split('T')[0],
-      dueDate: dueDate || new Date().toISOString().split('T')[0],
-      currentValue: 0,
-      targetValue: Number(kr.targetValue) || 100,
-      unit: kr.unit || 'pts',
-      progress: 0,
-      confidenceScore: Number(kr.confidenceScore) || 5,
-      businessNeed: kr.businessNeed || '',
-      beforeText: kr.businessNeed || '',  // auto-fill Before from Business Need
-    }));
+    setSubmitError(null);
+    setIsSubmitting(true);
 
-    addObjective({
-      id: objId,
-      title,
-      category,
-      priority,
-      cycle,
-      assignedTo: assignedTo.join(' ; '),
-      startDate: startDate || new Date().toISOString().split('T')[0],
-      dueDate: dueDate || new Date().toISOString().split('T')[0],
-      status: 'Not started',
-      progress: 0,
-      keyResults: generatedKrs,
-      businessNeeds: '', // removed from UI
-      confidenceScore: 3,
-      notes: '',
-      statusIndicators: '',
-      currentMonthFocus: '',
-      nextMonthFocus: '',
-      lastReviewDate: '',
-      plannedNextReviewDate: '',
-      reviewComment: '',
-      history: []
-    });
-    
-    // Reset form
-    setTitle('');
-    setCategory('Department');
-    setPriority('Medium');
-    setAssignedTo([currentUser || users[0] || 'Unassigned']);
-    setStartDate('');
-    setDueDate('');
-    setKrs([{ title: '', targetValue: 100, unit: '%', confidenceScore: 5, businessNeed: '' }]);
-    
-    setNewObjModalOpen(false);
+    const normalizedPriority = (() => {
+      const value = (priority || '').toLowerCase();
+      if (value === 'critical') return 'critical' as const;
+      if (value === 'high') return 'high' as const;
+      if (value === 'low') return 'low' as const;
+      return 'medium' as const;
+    })();
+
+    const effectiveStartDate = startDate || new Date().toISOString().split('T')[0];
+    const effectiveDueDate = dueDate || new Date().toISOString().split('T')[0];
+
+    try {
+      const createdObjective = await createObjective({
+        title: title.trim(),
+        category,
+        priority: normalizedPriority,
+        startDate: effectiveStartDate,
+        dueDate: effectiveDueDate,
+        notes: '',
+      });
+
+      const validKrs = krs.filter((kr) => kr.title.trim() !== '');
+      await Promise.all(
+        validKrs.map((kr) =>
+          createKeyResult({
+            objectiveId: createdObjective.id,
+            title: kr.title,
+            metricType: 'manual',
+            target: Number(kr.targetValue) || 100,
+            current: 0,
+            unit: kr.unit || 'pts',
+            confidence: Math.max(0, Math.min(1, (Number(kr.confidenceScore) || 5) / 10)),
+            weight: 1,
+          }),
+        ),
+      );
+
+      const generatedKrs = validKrs.map((kr, idx) => ({
+        id: `${createdObjective.id}-kr-${idx + 1}`,
+        title: kr.title,
+        status: 'Not started' as const,
+        priority,
+        category,
+        assignedTo: assignedTo.join(' ; '),
+        startDate: effectiveStartDate,
+        dueDate: effectiveDueDate,
+        currentValue: 0,
+        targetValue: Number(kr.targetValue) || 100,
+        unit: kr.unit || 'pts',
+        progress: 0,
+        confidenceScore: Number(kr.confidenceScore) || 5,
+        businessNeed: kr.businessNeed || '',
+        beforeText: kr.businessNeed || '',
+      }));
+
+      // Keep legacy local-state pages in sync while persisting to backend.
+      addObjective({
+        id: createdObjective.id,
+        title,
+        category,
+        priority,
+        cycle,
+        assignedTo: assignedTo.join(' ; '),
+        startDate: effectiveStartDate,
+        dueDate: effectiveDueDate,
+        status: 'Not started',
+        progress: 0,
+        keyResults: generatedKrs,
+        businessNeeds: '',
+        confidenceScore: 3,
+        notes: '',
+        statusIndicators: '',
+        currentMonthFocus: '',
+        nextMonthFocus: '',
+        lastReviewDate: '',
+        plannedNextReviewDate: '',
+        reviewComment: '',
+        history: [],
+      });
+
+      setTitle('');
+      setCategory('Department');
+      setPriority('Medium');
+      setAssignedTo([currentUser || users[0] || 'Unassigned']);
+      setStartDate('');
+      setDueDate('');
+      setKrs([{ title: '', targetValue: 100, unit: '%', confidenceScore: 5, businessNeed: '' }]);
+
+      setNewObjModalOpen(false);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Failed to create objective in database');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -289,17 +335,21 @@ export default function NewObjectiveModal() {
             </div>
           </div>
           
+          {submitError && <div className="text-sm text-red-600 -mt-2">{submitError}</div>}
+
           <div className="pt-8 flex justify-end gap-3 shrink-0 border-t border-gray-100 mt-8">
             <button 
               type="button" 
               onClick={() => setNewObjModalOpen(false)}
-              className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors">
+              disabled={isSubmitting}
+              className="px-5 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
               Cancel
             </button>
             <button 
               type="submit"
-              className="px-6 py-2.5 text-sm font-bold text-white bg-[#D97706] rounded-md hover:bg-[#B45309] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-              Save Objective & Key Results
+              disabled={isSubmitting}
+              className="px-6 py-2.5 text-sm font-bold text-white bg-[#D97706] rounded-md hover:bg-[#B45309] transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:translate-y-0">
+              {isSubmitting ? 'Saving...' : 'Save Objective & Key Results'}
             </button>
           </div>
         </form>
@@ -307,3 +357,8 @@ export default function NewObjectiveModal() {
     </div>
   );
 }
+
+
+
+
+

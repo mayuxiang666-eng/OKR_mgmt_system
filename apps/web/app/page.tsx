@@ -5,9 +5,12 @@ import { useState, useRef } from 'react';
 import { ChevronDown, Target, Trash2, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import Link from 'next/link';
+import { deleteObjective as deleteObjectiveRequest } from '../lib/api';
+import { useI18n } from '../lib/i18n';
 
 export default function OKRExplorer() {
   const { objectives, searchQuery, setSearchQuery, deleteObjective, currentUser } = useOkrStore();
+  const { t } = useI18n();
 
   const [selectedCycle, setSelectedCycle] = useState('All Cycles');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
@@ -86,6 +89,14 @@ export default function OKRExplorer() {
 
   const activeThemes = Object.entries(themeStats).filter(([_, d]) => d.total > 0).sort((a, b) => b[1].total - a[1].total);
 
+  const displayCycle = (value: string) => (value === 'All Cycles' ? t('allCycles') : value);
+  const displayCategory = (value: string) => (value === 'All Categories' ? t('allCategories') : value);
+  const displayOwner = (value: string) => {
+    if (value === 'All Owners') return t('allOwners');
+    if (value === 'My Objectives') return t('myObjectives');
+    return value;
+  };
+
   // ── Click handlers ────────────────────────────────────────────────────────
   const handleDonutClick = (status: string) => {
     setStatusFilter(prev => prev === status ? null : status);
@@ -142,14 +153,25 @@ export default function OKRExplorer() {
   const totalOkr = allOkrCount;
   const activeFilter = statusFilter || themeFilter;
 
+  const handleDeleteObjective = async (id: string, title: string) => {
+    if (!confirm(`${t('deleteObjectiveConfirm')}\n\n${title}`)) return;
+
+    try {
+      await deleteObjectiveRequest(id);
+      deleteObjective(id);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : t('deleteFailed')); 
+    }
+  };
+
   return (
     <div className="space-y-8 pb-12">
 
       {/* ── Page Header ── */}
       <div className="flex justify-between items-start">
         <div className="max-w-2xl">
-          <h1 className="text-3xl font-bold tracking-tight mb-2">OKR Explorer</h1>
-          <p className="text-gray-500">Strategy execution platform for Continental Precision Engineering.</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">{t('explorerTitle')}</h1>
+          <p className="text-gray-500">{t('explorerSubtitle')}</p>
         </div>
       </div>
 
@@ -159,23 +181,23 @@ export default function OKRExplorer() {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-xl font-bold text-gray-900 tracking-tight">Strategic OKR Health</h2>
+            <h2 className="text-xl font-bold text-gray-900 tracking-tight">{t('strategicHealth')}</h2>
             <p className="text-xs font-medium text-gray-400 mt-0.5">Click any segment to filter the OKR list below ↓</p>
           </div>
           <div className="flex gap-6 text-sm font-bold bg-gray-50 px-5 py-3 rounded-xl border border-gray-100">
             <div className="flex flex-col text-right">
               <span className="text-2xl font-black text-gray-900">{totalOkr}</span>
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Total</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('total')}</span>
             </div>
             <div className="w-px h-10 bg-gray-200 mt-1" />
             <div className="flex flex-col text-right">
               <span className="text-2xl font-black text-[#D97706]">{crossCount}</span>
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Cross-OKR</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('crossOkr')}</span>
             </div>
             <div className="w-px h-10 bg-gray-200 mt-1" />
             <div className="flex flex-col text-right">
               <span className="text-2xl font-black text-blue-600">{taskForceCount}</span>
-              <span className="text-[10px] text-gray-400 uppercase tracking-wider">Task Force</span>
+              <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('taskForce')}</span>
             </div>
           </div>
         </div>
@@ -218,9 +240,9 @@ export default function OKRExplorer() {
             {/* Legend — each row clickable */}
             <div className="w-full space-y-2 bg-gray-50 p-3 rounded-xl border border-gray-100">
               {([
-                { key: 'onTrack', label: 'Completed / In Progress', color: '#10B981', count: allOnTrack },
-                { key: 'atRisk', label: 'Behind / Not Started', color: '#F59E0B', count: allAtRisk },
-                { key: 'offTrack', label: 'Blocked', color: '#EF4444', count: allOffTrack },
+                { key: 'onTrack', label: t('completedInProgress'), color: '#10B981', count: allOnTrack },
+                { key: 'atRisk', label: t('behindNotStarted'), color: '#F59E0B', count: allAtRisk },
+                { key: 'offTrack', label: t('blocked'), color: '#EF4444', count: allOffTrack },
               ] as const).map(item => (
                 <button key={item.key} onClick={() => handleDonutClick(item.key)}
                   className={cn(
@@ -240,7 +262,7 @@ export default function OKRExplorer() {
           {/* ── Stacked bars ── */}
           <div className="col-span-1 lg:col-span-3">
             <div className="flex justify-between items-end mb-4">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">Distribution by Strategic Theme</h3>
+              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider">{t('distributionByTheme')}</h3>
               <span className="text-xs font-semibold text-gray-400">Green: In Progress · Yellow: Behind/Not Started · Red: Blocked</span>
             </div>
             <div className="space-y-5">
@@ -259,21 +281,21 @@ export default function OKRExplorer() {
                     {data.onTrack > 0 && (
                       <div onClick={() => handleBarClick(theme, 'onTrack')}
                         className="h-full bg-[#10B981] hover:brightness-110 cursor-pointer flex items-center justify-center text-[10px] text-white font-bold transition-all duration-700"
-                        style={{ width: `${(data.onTrack / data.total) * 100}%` }} title={`${data.onTrack} Completed / In Progress`}>
+                        style={{ width: `${(data.onTrack / data.total) * 100}%` }} title={`${data.onTrack} ${t('completedInProgress')}`}>
                         {data.onTrack > 1 ? data.onTrack : ''}
                       </div>
                     )}
                     {data.atRisk > 0 && (
                       <div onClick={() => handleBarClick(theme, 'atRisk')}
                         className="h-full bg-[#F59E0B] hover:brightness-110 cursor-pointer flex items-center justify-center text-[10px] text-white font-bold transition-all duration-700"
-                        style={{ width: `${(data.atRisk / data.total) * 100}%` }} title={`${data.atRisk} Behind / Not Started`}>
+                        style={{ width: `${(data.atRisk / data.total) * 100}%` }} title={`${data.atRisk} ${t('behindNotStarted')}`}>
                         {data.atRisk > 1 ? data.atRisk : ''}
                       </div>
                     )}
                     {data.offTrack > 0 && (
                       <div onClick={() => handleBarClick(theme, 'offTrack')}
                         className="h-full bg-[#EF4444] hover:brightness-110 cursor-pointer flex items-center justify-center text-[10px] text-white font-bold transition-all duration-700"
-                        style={{ width: `${(data.offTrack / data.total) * 100}%` }} title={`${data.offTrack} Blocked`}>
+                        style={{ width: `${(data.offTrack / data.total) * 100}%` }} title={`${data.offTrack} ${t('blocked')}`}>
                         {data.offTrack > 1 ? data.offTrack : ''}
                       </div>
                     )}
@@ -299,9 +321,9 @@ export default function OKRExplorer() {
           {activeFilter && (
             <div className="flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold px-3 py-1.5 rounded-full">
               <span>
-                {themeFilter && `Theme: ${themeFilter}`}
+                {themeFilter && `${t('themeLabel')}: ${themeFilter}`}
                 {themeFilter && statusFilter && ' · '}
-                {statusFilter && `Status: ${statusFilter === 'onTrack' ? 'In Progress' : statusFilter === 'atRisk' ? 'Behind' : 'Blocked'}`}
+                {statusFilter && `${t('statusLabel')}: ${statusFilter === 'onTrack' ? t('statusOnTrack') : statusFilter === 'atRisk' ? t('statusAtRisk') : t('statusOffTrack')}`}
               </span>
               <button onClick={clearChartFilter} className="ml-1 hover:text-orange-900">
                 <X className="w-3.5 h-3.5" />
@@ -312,33 +334,33 @@ export default function OKRExplorer() {
           <div className="flex-1" />
 
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">SEARCH</label>
-            <input type="text" placeholder="Search OKRs or KRs..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('search')}</label>
+            <input type="text" placeholder={t('searchObjectivesByTitle')} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
               className="w-52 px-3 py-2 bg-white border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 transition-shadow" />
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">CYCLE</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('cycle')}</label>
             <div className="relative">
               <select value={selectedCycle} onChange={e => setSelectedCycle(e.target.value)} className="appearance-none w-32 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 cursor-pointer">
-                {availableCycles.map(c => <option key={c} value={c}>{c}</option>)}
+                {availableCycles.map(c => <option key={c} value={c}>{displayCycle(c)}</option>)}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">CATEGORY</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('category')}</label>
             <div className="relative">
               <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="appearance-none w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 cursor-pointer">
-                {availableCategories.map(c => <option key={c} value={c}>{c}</option>)}
+                {availableCategories.map(c => <option key={c} value={c}>{displayCategory(c)}</option>)}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">ASSIGNED TO</label>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('assignedTo')}</label>
             <div className="relative">
               <select value={selectedOwner} onChange={e => setSelectedOwner(e.target.value)} className="appearance-none w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 cursor-pointer">
-                {availableOwners.map(c => <option key={c} value={c}>{c}</option>)}
+                {availableOwners.map(c => <option key={c} value={c}>{displayOwner(c)}</option>)}
               </select>
               <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -350,11 +372,11 @@ export default function OKRExplorer() {
           {filteredObjectives.length === 0 ? (
             <div className="bg-white border text-center border-gray-100 rounded-xl p-12 shadow-sm text-gray-500 flex flex-col items-center">
               <Target className="w-12 h-12 text-gray-300 mb-4" />
-              <p className="font-semibold text-gray-700 text-lg">No objectives found</p>
+              <p className="font-semibold text-gray-700 text-lg">{t('noObjectives')}</p>
               <p className="text-sm">
                 {activeFilter ? 'No OKRs match the selected chart filter. ' : ''}
-                Try adjusting your search criteria or filters.
-                {activeFilter && <button onClick={clearChartFilter} className="ml-1 text-orange-600 underline font-semibold">Clear chart filter</button>}
+                {t('noObjectivesHint')}
+                {activeFilter && <button onClick={clearChartFilter} className="ml-1 text-orange-600 underline font-semibold">{t('clearChartFilter')}</button>}
               </p>
             </div>
           ) : (
@@ -363,7 +385,7 @@ export default function OKRExplorer() {
                 <div className="w-1.5 absolute left-0 top-0 bottom-0 bg-[#D97706]" />
                 <div className="p-6 flex-1 ml-1 relative">
                   <button
-                    onClick={() => confirm(`Are you sure you want to delete "${obj.title}"?`) && deleteObjective(obj.id)}
+                    onClick={() => handleDeleteObjective(obj.id, obj.title)}
                     className="absolute top-6 right-6 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                     title="Delete Objective">
                     <Trash2 className="w-4 h-4" />
@@ -410,7 +432,7 @@ export default function OKRExplorer() {
                     <button
                       onClick={(e) => { e.preventDefault(); toggleExpand(obj.id); }}
                       className="flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-[#D97706] transition-colors py-1.5 px-3 rounded-full hover:bg-orange-50 border border-gray-200 hover:border-orange-200 shadow-sm">
-                      {expandedObs.has(obj.id) ? 'Collapse Key Results' : `View Key Results (${obj.keyResults.length})`}
+                      {expandedObs.has(obj.id) ? t('collapseKeyResults') : `${t('viewKeyResults')} (${obj.keyResults.length})`}
                       <ChevronDown className={cn('w-3.5 h-3.5 transition-transform', expandedObs.has(obj.id) ? 'rotate-180' : '')} />
                     </button>
                   </div>
@@ -418,7 +440,7 @@ export default function OKRExplorer() {
                   {expandedObs.has(obj.id) && (
                     <div className="space-y-4 pl-16 pr-12 pb-6 border-t border-gray-50 pt-6">
                       {obj.keyResults.length === 0 ? (
-                        <div className="text-sm text-gray-400 italic py-2">No key results defined yet.</div>
+                        <div className="text-sm text-gray-400 italic py-2">{t('noKeyResults')}</div>
                       ) : (
                         obj.keyResults.map((kr, krIdx) => (
                           <div key={kr.id} className={cn('pt-4', krIdx > 0 ? 'border-t border-gray-50' : 'pt-0')}>
@@ -440,7 +462,7 @@ export default function OKRExplorer() {
                                 </div>
                                 <Link href={`/objective/${obj.id}#checkin`} className={cn('px-3 py-1.5 text-xs font-semibold rounded-md border transition-colors flex items-center gap-1.5 shrink-0',
                                   (obj.status === 'Behind' || obj.status === 'Blocked') ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50')}>
-                                  {(obj.status === 'Behind' || obj.status === 'Blocked') ? '! Remediate' : 'Update Status'}
+                                  {(obj.status === 'Behind' || obj.status === 'Blocked') ? `! ${t('remediate')}` : t('updateStatus')}
                                 </Link>
                               </div>
                             </div>

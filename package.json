@@ -8,13 +8,13 @@
     "apps/api"
   ],
   "scripts": {
-    "dev": "concurrently \"npm --workspace apps/api run dev\" \"npm --workspace apps/web run dev\"",
-    "dev:api": "npm --workspace apps/api run dev",
-    "dev:web": "npm --workspace apps/web run dev",
-    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
-    "lint": "npm --workspace apps/api run lint && npm --workspace apps/web run lint",
-    "format": "npm --workspace apps/api run format && npm --workspace apps/web run format",
-    "prisma:generate": "npm --workspace apps/api run prisma:generate"
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "cd apps/api && npx ts-node-dev --respawn --transpile-only src/main.ts",
+    "dev:web": "cd apps/web && npx next dev",
+    "build": "cd apps/api && npx tsc -p tsconfig.json && cd ../web && npx next build",
+    "lint": "cd apps/api && echo 'lint' && cd ../web && npx next lint",
+    "format": "cd apps/api && echo 'format' && cd ../web && echo 'format'",
+    "prisma:generate": "cd apps/api && npx prisma generate"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

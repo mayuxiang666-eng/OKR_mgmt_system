@@ -15,6 +15,7 @@ model Organization {
   users       User[]
   cycles      OkrCycle[]
   integrations Integration[]
+  objectives  Objective[]
   createdAt   DateTime      @default(now())
 }
 
@@ -25,6 +26,7 @@ model Department {
   name      String
   parentId  String?  @db.VarChar(191)
   teams     Team[]
+  users     User[]
 }
 
 model Team {
@@ -44,6 +46,7 @@ model User {
   email     String   @unique
   displayName String
   role      String
+  passwordHash String?
   org       Organization @relation(fields: [orgId], references: [id])
   orgId     String
   dept      Department? @relation(fields: [deptId], references: [id])
@@ -172,6 +175,8 @@ model Task {
   initiativeId String?
   kr         KeyResult? @relation(fields: [krId], references: [id])
   krId       String?
+  project    Project?   @relation(fields: [projectId], references: [id])
+  projectId  String?
   title      String
   status     String
   assignee   User?   @relation(fields: [assigneeId], references: [id])
@@ -247,3 +252,5 @@ model AuditLog {
   diff      Json?
   createdAt DateTime @default(now())
 }
+
+

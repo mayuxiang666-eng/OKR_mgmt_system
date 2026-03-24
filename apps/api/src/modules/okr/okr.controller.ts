@@ -1,10 +1,12 @@
-import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { OkrService } from './okr.service';
 import { CreateCycleDto } from './dto/create-cycle.dto';
 import { CreateObjectiveDto } from './dto/create-objective.dto';
 import { CreateKeyResultDto } from './dto/create-key-result.dto';
 import { UpdateKrProgressDto } from './dto/update-kr-progress.dto';
 import { CreateAlignmentDto } from './dto/create-alignment.dto';
+import { UpdateObjectiveDto } from './dto/update-objective.dto';
+import { UpdateKeyResultDto } from './dto/update-key-result.dto';
 
 @Controller()
 export class OkrController {
@@ -39,15 +41,33 @@ export class OkrController {
   getObjective(@Param('id') id: string) {
     return this.okrService.getObjective(id);
   }
+  @Patch('objectives/:id')
+  updateObjective(@Param('id') id: string, @Body() body: UpdateObjectiveDto) {
+    return this.okrService.updateObjective(id, body);
+  }
 
+  @Delete('objectives/:id')
+  deleteObjective(@Param('id') id: string) {
+    return this.okrService.deleteObjective(id);
+  }
   @Post('key-results')
   createKeyResult(@Body() body: CreateKeyResultDto) {
     return this.okrService.createKeyResult(body);
   }
 
+  @Patch('key-results/:id')
+  updateKeyResult(@Param('id') id: string, @Body() body: UpdateKeyResultDto) {
+    return this.okrService.updateKeyResult(id, body);
+  }
+
   @Patch('key-results/:id/progress')
   updateKrProgress(@Param('id') id: string, @Body() body: UpdateKrProgressDto) {
     return this.okrService.updateKrProgress(id, body);
+  }
+
+  @Delete('key-results/:id')
+  deleteKeyResult(@Param('id') id: string) {
+    return this.okrService.deleteKeyResult(id);
   }
 
   @Get('key-results')
@@ -73,5 +93,7 @@ export class OkrController {
     return this.okrService.listAlignments(parentObjectiveId ?? parentObjectiveIdLegacy);
   }
 }
+
+
 
 

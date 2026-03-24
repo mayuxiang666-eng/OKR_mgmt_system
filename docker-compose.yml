@@ -1,17 +1,18 @@
 version: "3.9"
+
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: okr_postgres
+  mysql:
+    image: mysql:8.0
+    container_name: okr_mysql
     restart: unless-stopped
     environment:
-      POSTGRES_USER: okr_user
-      POSTGRES_PASSWORD: okr_pass
-      POSTGRES_DB: okr_db
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: okr_db
     ports:
-      - "5432:5432"
+      - "3306:3306"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - mysqldata:/var/lib/mysql
+
   redis:
     image: redis:7-alpine
     container_name: okr_redis
@@ -20,6 +21,7 @@ services:
       - "6379:6379"
     volumes:
       - redisdata:/data
+
 volumes:
-  pgdata:
+  mysqldata:
   redisdata:

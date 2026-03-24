@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { Objective, KeyResult, Initiative, OkrProgress } from './types';
 import { mockObjectives } from './mockData';
 
+export type AppLanguage = 'zh' | 'en';
+
 // Extract unique users
 const uniqueUsers = Array.from(new Set(mockObjectives.map(o => o.assignedTo))).filter(u => u !== 'Unassigned' && u.trim() !== '');
 
@@ -11,16 +13,19 @@ interface OkrState {
   currentUser: string | null;
   searchQuery: string;
   isNewObjModalOpen: boolean;
-  
-  login: (user: string) => void;
+  language: AppLanguage;
+
+  login: (user: string, persist?: boolean) => void;
   logout: () => void;
   setSearchQuery: (q: string) => void;
+  setLanguage: (lang: AppLanguage) => void;
   setNewObjModalOpen: (isOpen: boolean) => void;
+  replaceObjectives: (objs: Objective[]) => void;
   addObjective: (obj: Objective) => void;
   updateObjective: (id: string, updates: Partial<Objective>) => void;
   deleteObjective: (id: string) => void;
   addCheckIn: (objId: string, newValue: number, comment: string, status: OkrProgress | string) => void;
-  
+
   // Manage KRs within Objective
   addKr: (objId: string, kr: KeyResult) => void;
   updateKr: (objId: string, krId: string, updates: Partial<KeyResult>) => void;
@@ -30,21 +35,38 @@ interface OkrState {
 export const useOkrStore = create<OkrState>((set) => ({
   objectives: mockObjectives,
   users: uniqueUsers,
-  currentUser: null,
+  currentUser: typeof window !== 'undefined' ? window.localStorage.getItem('okr_user') : null,
   searchQuery: '',
   isNewObjModalOpen: false,
+  // Keep SSR and first client render identical; hydrate from localStorage after mount.
+  language: 'zh',
 
-  login: (user) => set({ currentUser: user }),
-  logout: () => set({ currentUser: null }),
+  login: (user, persist) => {
+    if (persist && typeof window !== 'undefined') {
+      window.localStorage.setItem('okr_user', user);
+    }
+    set({ currentUser: user });
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('okr_user');
+    }
+    set({ currentUser: null });
+  },
   setSearchQuery: (q) => set({ searchQuery: q }),
+  setLanguage: (lang) => {
+    if (typeof window !== 'undefined') window.localStorage.setItem('app_language', lang);
+    set({ language: lang });
+  },
   setNewObjModalOpen: (isOpen) => set({ isNewObjModalOpen: isOpen }),
+  replaceObjectives: (objs) => set({ objectives: objs }),
 
-  addObjective: (obj) => set((state) => ({ 
-    objectives: [obj, ...state.objectives] 
+  addObjective: (obj) => set((state) => ({
+    objectives: [obj, ...state.objectives]
   })),
 
   updateObjective: (id, updates) => set((state) => ({
-    objectives: state.objectives.map((o) => 
+    objectives: state.objectives.map((o) =>
       o.id === id ? { ...o, ...updates } : o
     )
   })),
@@ -60,12 +82,12 @@ export const useOkrStore = create<OkrState>((set) => ({
       const newHistoryItem = {
         id: `hist-${Date.now()}`,
         author: state.currentUser || 'Current User',
-        timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' • ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' - ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         value: newValue,
         comment: comment,
         status: reqStatus as OkrProgress,
       };
-      
+
       return {
         ...obj,
         progress: newValue, // Assuming objective progress is manually logged here
@@ -76,13 +98,13 @@ export const useOkrStore = create<OkrState>((set) => ({
   })),
 
   addKr: (objId, kr) => set((state) => ({
-    objectives: state.objectives.map(obj => 
+    objectives: state.objectives.map(obj =>
       obj.id === objId ? { ...obj, keyResults: [...obj.keyResults, kr] } : obj
     )
   })),
-  
+
   updateKr: (objId, krId, updates) => set((state) => ({
-    objectives: state.objectives.map(obj => 
+    objectives: state.objectives.map(obj =>
       obj.id === objId ? {
         ...obj,
         keyResults: obj.keyResults.map(kr => kr.id === krId ? { ...kr, ...updates } : kr)
@@ -91,7 +113,7 @@ export const useOkrStore = create<OkrState>((set) => ({
   })),
 
   deleteKr: (objId, krId) => set((state) => ({
-    objectives: state.objectives.map(obj => 
+    objectives: state.objectives.map(obj =>
       obj.id === objId ? {
         ...obj,
         keyResults: obj.keyResults.filter(kr => kr.id !== krId)
@@ -99,3 +121,4 @@ export const useOkrStore = create<OkrState>((set) => ({
     )
   }))
 }));
+

@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import ClientAuthWrapper from "../components/ClientAuthWrapper";
 import NewObjectiveModal from "../components/NewObjectiveModal";
+import { Providers } from "./providers";
 
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 
@@ -19,10 +20,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased text-gray-900 bg-[#FDFCFB]`}>
-        <ClientAuthWrapper>
-          {children}
-        </ClientAuthWrapper>
-        <NewObjectiveModal />
+        <Providers>
+          <ClientAuthWrapper>
+            {children}
+          </ClientAuthWrapper>
+          <NewObjectiveModal />
+        </Providers>
       </body>
     </html>
   );

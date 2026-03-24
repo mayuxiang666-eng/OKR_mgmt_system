@@ -1,4 +1,4 @@
-export type UiHealthStatus = 'onTrack' | 'atRisk' | 'offTrack';
+﻿export type UiHealthStatus = 'onTrack' | 'atRisk' | 'offTrack';
 
 export interface Objective {
   id: string;
@@ -8,6 +8,11 @@ export interface Objective {
   progressCached: number;
   confidenceCached: number;
   status: string;
+  description?: string | null;
+  startDate?: string | null;
+  dueDate?: string | null;
+  lastReviewDate?: string | null;
+  plannedNextReviewDate?: string | null;
   owner?: { id: string; displayName: string; email: string } | null;
   keyResults?: KeyResult[];
 }
@@ -18,6 +23,7 @@ export interface KeyResult {
   title: string;
   metricType: string;
   target: number;
+  baseline?: number | null;
   current?: number | null;
   forecast?: number | null;
   progress: number;
@@ -36,6 +42,18 @@ export interface CreateObjectiveInput {
   notes?: string;
 }
 
+export interface UpdateObjectiveInput {
+  title?: string;
+  category?: string;
+  priority?: 'critical' | 'high' | 'medium' | 'low';
+  status?: 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'behind';
+  startDate?: string;
+  dueDate?: string;
+  description?: string;
+  lastReviewDate?: string;
+  plannedNextReviewDate?: string;
+}
+
 export interface CreateKrInput {
   objectiveId: string;
   title: string;
@@ -48,6 +66,18 @@ export interface CreateKrInput {
   unit?: string;
 }
 
+export interface UpdateKeyResultInput {
+  title?: string;
+  target?: number;
+  baseline?: number;
+  current?: number;
+  forecast?: number;
+  confidence?: number;
+  unit?: string;
+  weight?: number;
+  status?: 'on_track' | 'at_risk' | 'off_track';
+}
+
 export interface CreateCheckinInput {
   krId: string;
   current?: number;
@@ -58,7 +88,33 @@ export interface CreateCheckinInput {
   comment?: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api';
+export interface AuthUser {
+  id: string;
+  displayName: string;
+  email: string;
+  role: string;
+}
+
+export interface AuthResult {
+  access_token: string;
+  refresh_token: string;
+  role: string;
+  email: string;
+  user: AuthUser;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface RegisterInput {
+  displayName: string;
+  email: string;
+  password: string;
+}
+
+const API_BASE = '/backend-api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -117,6 +173,13 @@ export function createObjective(input: CreateObjectiveInput) {
   });
 }
 
+export function updateObjective(id: string, input: UpdateObjectiveInput) {
+  return request<Objective>(`/objectives/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
 export function createKeyResult(input: CreateKrInput) {
   return request<KeyResult>('/key-results', {
     method: 'POST',
@@ -126,6 +189,19 @@ export function createKeyResult(input: CreateKrInput) {
 
 export function getKeyResult(id: string) {
   return request<KeyResult>(`/key-results/${id}`);
+}
+
+export function updateKeyResult(id: string, input: UpdateKeyResultInput) {
+  return request<KeyResult>(`/key-results/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteKeyResult(id: string) {
+  return request<{ id: string; deleted: boolean }>(`/key-results/${id}`, {
+    method: 'DELETE',
+  });
 }
 
 export function createCheckin(input: CreateCheckinInput) {
@@ -139,5 +215,25 @@ export function updateKrProgress(id: string, payload: { current?: number; foreca
   return request<KeyResult>(`/key-results/${id}/progress`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+}
+
+export function deleteObjective(id: string) {
+  return request<{ id: string; deleted: boolean }>(`/objectives/${id}`, {
+    method: 'DELETE',
+  });
+}
+
+export function loginWithPassword(input: LoginInput) {
+  return request<AuthResult>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export function registerWithPassword(input: RegisterInput) {
+  return request<AuthResult>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(input),
   });
 }

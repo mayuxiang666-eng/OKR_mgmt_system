@@ -48,6 +48,30 @@ export interface UpdateKrProgressInput {
   confidence?: number;
 }
 
+export interface UpdateObjectiveInput {
+  title?: string;
+  category?: string;
+  priority?: string;
+  status?: string;
+  startDate?: string;
+  dueDate?: string;
+  description?: string;
+  lastReviewDate?: string;
+  plannedNextReviewDate?: string;
+}
+
+export interface UpdateKeyResultInput {
+  title?: string;
+  unit?: string;
+  baseline?: number;
+  target?: number;
+  current?: number;
+  forecast?: number;
+  weight?: number;
+  confidence?: number;
+  status?: string;
+}
+
 export interface CreateAlignmentInput {
   parentObjectiveId: string;
   childObjectiveId: string;
@@ -97,7 +121,6 @@ export class OkrService {
         startDate: input.startDate ? new Date(input.startDate) : null,
         dueDate: input.dueDate ? new Date(input.dueDate) : null,
         description: input.description,
-        notes: input.notes,
         lastReviewDate: input.lastReviewDate ? new Date(input.lastReviewDate) : null,
         plannedNextReviewDate: input.plannedNextReviewDate ? new Date(input.plannedNextReviewDate) : null,
       },
@@ -128,6 +151,75 @@ export class OkrService {
       throw new NotFoundException(`Objective ${id} not found`);
     }
     return objective;
+  }
+
+  async updateObjective(id: string, input: UpdateObjectiveInput) {
+    await this.getObjective(id);
+
+    const updated = await this.prisma.objective.update({
+      where: { id },
+      data: {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.priority !== undefined ? { priority: input.priority } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.startDate !== undefined ? { startDate: input.startDate ? new Date(input.startDate) : null } : {}),
+        ...(input.dueDate !== undefined ? { dueDate: input.dueDate ? new Date(input.dueDate) : null } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+        ...(input.lastReviewDate !== undefined ? { lastReviewDate: input.lastReviewDate ? new Date(input.lastReviewDate) : null } : {}),
+        ...(input.plannedNextReviewDate !== undefined
+          ? { plannedNextReviewDate: input.plannedNextReviewDate ? new Date(input.plannedNextReviewDate) : null }
+          : {}),
+      },
+      include: {
+        keyResults: true,
+        owner: { select: { id: true, displayName: true, email: true } },
+      },
+    });
+
+    return updated;
+  }
+
+  async deleteObjective(id: string) {
+    const objective = await this.prisma.objective.findUnique({ where: { id }, select: { id: true } });
+    if (!objective) {
+      throw new NotFoundException(`Objective ${id} not found`);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      const keyResults = await tx.keyResult.findMany({ where: { objectiveId: id }, select: { id: true } });
+      const krIds = keyResults.map((item) => item.id);
+
+      const directInitiatives = await tx.initiative.findMany({ where: { objectiveId: id }, select: { id: true } });
+      const krInitiatives = krIds.length
+        ? await tx.initiative.findMany({ where: { krId: { in: krIds } }, select: { id: true } })
+        : [];
+      const initiativeIds = Array.from(new Set([...directInitiatives, ...krInitiatives].map((item) => item.id)));
+
+      if (initiativeIds.length) {
+        await tx.task.deleteMany({ where: { initiativeId: { in: initiativeIds } } });
+      }
+
+      if (krIds.length) {
+        await tx.task.deleteMany({ where: { krId: { in: krIds } } });
+        await tx.checkin.deleteMany({ where: { krId: { in: krIds } } });
+        await tx.review.deleteMany({ where: { krId: { in: krIds } } });
+        await tx.project.updateMany({ where: { krId: { in: krIds } }, data: { krId: null } });
+      }
+
+      await tx.review.deleteMany({ where: { objectiveId: id } });
+
+      if (initiativeIds.length) {
+        await tx.initiative.deleteMany({ where: { id: { in: initiativeIds } } });
+      }
+
+      await tx.alignment.deleteMany({ where: { OR: [{ parentObjectiveId: id }, { childObjectiveId: id }] } });
+      await tx.objective.updateMany({ where: { parentObjectiveId: id }, data: { parentObjectiveId: null } });
+      await tx.keyResult.deleteMany({ where: { objectiveId: id } });
+      await tx.objective.delete({ where: { id } });
+    });
+
+    return { id, deleted: true };
   }
 
   async createKeyResult(input: CreateKeyResultInput) {
@@ -173,6 +265,48 @@ export class OkrService {
       throw new NotFoundException(`Key result ${id} not found`);
     }
     return kr;
+  }
+
+  async updateKeyResult(id: string, input: UpdateKeyResultInput) {
+    const existing = await this.getKeyResult(id);
+
+    const nextTarget = input.target ?? existing.target;
+    const nextBaseline = input.baseline ?? existing.baseline ?? undefined;
+    const nextCurrent = input.current ?? existing.current ?? undefined;
+    const nextConfidence = input.confidence ?? existing.confidence;
+    const progress = this.calculateProgress(nextCurrent, nextBaseline, nextTarget);
+
+    const updated = await this.prisma.keyResult.update({
+      where: { id },
+      data: {
+        ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.unit !== undefined ? { unit: input.unit } : {}),
+        ...(input.baseline !== undefined ? { baseline: input.baseline } : {}),
+        ...(input.target !== undefined ? { target: input.target } : {}),
+        ...(input.current !== undefined ? { current: input.current } : {}),
+        ...(input.forecast !== undefined ? { forecast: input.forecast } : {}),
+        ...(input.weight !== undefined ? { weight: input.weight } : {}),
+        ...(input.confidence !== undefined ? { confidence: input.confidence } : {}),
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        progress,
+        status: input.status ?? this.toHealthStatus(progress, nextConfidence),
+      },
+    });
+
+    await this.refreshObjectiveProgress(existing.objectiveId);
+    return updated;
+  }
+
+  async deleteKeyResult(id: string) {
+    const existing = await this.getKeyResult(id);
+    await this.prisma.checkin.deleteMany({ where: { krId: id } });
+    await this.prisma.review.deleteMany({ where: { krId: id } });
+    await this.prisma.task.deleteMany({ where: { krId: id } });
+    await this.prisma.project.updateMany({ where: { krId: id }, data: { krId: null } });
+    await this.prisma.initiative.deleteMany({ where: { krId: id } });
+    await this.prisma.keyResult.delete({ where: { id } });
+    await this.refreshObjectiveProgress(existing.objectiveId);
+    return { id, deleted: true };
   }
 
   async updateKrProgress(id: string, input: UpdateKrProgressInput) {
