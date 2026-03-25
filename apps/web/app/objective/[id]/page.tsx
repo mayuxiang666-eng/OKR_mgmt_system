@@ -39,6 +39,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     reviewComment: '',
     category: '', 
     isCrossOkr: false,
+    area: '',
   });
 
   const [isPreviewingPpt, setIsPreviewingPpt] = useState(false);
@@ -90,6 +91,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         reviewComment: obj.reviewComment || '',
         category: obj.category || '',
         isCrossOkr: obj.category === 'Cross-OKR',
+        area: obj.area || '',
       });
     }
   }, [obj, isEditingDetails]);
@@ -258,6 +260,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     if (localDetails.plannedNextReviewDate !== obj.plannedNextReviewDate) changes.push(`${t('detailPlannedNextReview')}: ${localDetails.plannedNextReviewDate || t('detailCleared')}`);
     if (localDetails.reviewComment !== obj.reviewComment) changes.push(`${t('detailLeadershipComment')}:\n"${localDetails.reviewComment || t('detailCleared')}"`);
     if (localDetails.isCrossOkr !== (obj.category === 'Cross-OKR')) changes.push(`${t('isCrossOkr')}: ${localDetails.isCrossOkr ? 'Yes' : 'No'}`);
+    if (localDetails.area !== (obj.area || '')) changes.push(`Area: ${localDetails.area || 'Cleared'}`);
 
     const newHistory = [...(obj.history || [])];
     if (changes.length > 0) {
@@ -290,6 +293,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         lastReviewDate: localDetails.lastReviewDate || undefined,
         plannedNextReviewDate: localDetails.plannedNextReviewDate || undefined,
         category: localDetails.isCrossOkr ? 'Cross-OKR' : (obj.category === 'Cross-OKR' ? 'Department' : obj.category),
+        area: localDetails.area || null,
       });
 
       updateObjectiveLocal(obj.id, { ...localDetails, history: newHistory });
@@ -691,6 +695,31 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
                       <span className="text-xs font-black text-[#D97706] uppercase tracking-wider">{t('isCrossOkr')}</span>
                     </div>
                   ) : null}
+                </div>
+
+                <div className="border-t border-gray-50 pt-4">
+                  <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">Area</p>
+                  {isEditingDetails ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        list="area-edit-suggestions"
+                        value={localDetails.area}
+                        onChange={e => setLocalDetails({ ...localDetails, area: e.target.value })}
+                        placeholder="e.g. Mixing 密炼"
+                        className="w-full bg-white border border-gray-200 rounded-md py-1 px-3 text-xs focus:ring-1 focus:ring-orange-400 outline-none"
+                      />
+                      <datalist id="area-edit-suggestions">
+                        <option value="Mixing 密炼" />
+                        <option value="Hot preparation 热准备" />
+                        <option value="Curing 硫化" />
+                        <option value="Tire Building 成型" />
+                        <option value="Final finishing 终检" />
+                      </datalist>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-semibold flex items-center gap-1.5 text-gray-900">{obj.area || '--'}</p>
+                  )}
                 </div>
 
                 <div className="flex gap-4 border-t border-gray-50 pt-4">

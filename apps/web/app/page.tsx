@@ -14,6 +14,7 @@ export default function OKRExplorer() {
 
   const [selectedCycle, setSelectedCycle] = useState('All Cycles');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
+  const [selectedArea, setSelectedArea] = useState('All Areas');
   const [selectedOwner, setSelectedOwner] = useState('My Objectives');
   const [expandedObs, setExpandedObs] = useState<Set<string>>(new Set());
 
@@ -38,6 +39,7 @@ export default function OKRExplorer() {
 
   const availableCycles = ['All Cycles', ...Array.from(new Set(objectives.map(o => o.cycle)))];
   const availableCategories = ['All Categories', ...Array.from(new Set(objectives.map(o => o.category)))];
+  const availableAreas = ['All Areas', 'Mixing 密炼', 'Hot preparation 热准备', 'Curing 硫化', 'Tire Building 成型', 'Final finishing 终检'];
   const availableOwners = ['All Owners', 'My Objectives', ...Array.from(new Set(objectives.flatMap(o => (o.assignedTo || '').split(' ; '))))].filter(x => x);
 
   // ── Compute health stats for ALL objectives (ignore filters for chart) ──
@@ -93,6 +95,7 @@ export default function OKRExplorer() {
 
   const displayCycle = (value: string) => (value === 'All Cycles' ? t('allCycles') : value);
   const displayCategory = (value: string) => (value === 'All Categories' ? t('allCategories') : value);
+  const displayArea = (value: string) => (value === 'All Areas' ? 'All Areas' : value);
   const displayOwner = (value: string) => {
     if (value === 'All Owners') return t('allOwners');
     if (value === 'My Objectives') return t('myObjectives');
@@ -118,6 +121,7 @@ export default function OKRExplorer() {
   const filteredObjectives = objectives.filter(obj => {
     if (selectedCycle !== 'All Cycles' && obj.cycle !== selectedCycle) return false;
     if (selectedCategory !== 'All Categories' && obj.category !== selectedCategory) return false;
+    if (selectedArea !== 'All Areas' && obj.area !== selectedArea) return false;
     if (selectedOwner === 'My Objectives') {
       if (!currentUser || !(obj.assignedTo || '').includes(currentUser.displayName)) return false;
     } else if (selectedOwner !== 'All Owners') {
@@ -363,6 +367,15 @@ export default function OKRExplorer() {
             </div>
           </div>
           <div className="space-y-1">
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Area</label>
+            <div className="relative">
+              <select value={selectedArea} onChange={e => setSelectedArea(e.target.value)} className="appearance-none w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 cursor-pointer">
+                {availableAreas.map(c => <option key={c} value={c}>{displayArea(c)}</option>)}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+          <div className="space-y-1">
             <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">{t('assignedTo')}</label>
             <div className="relative">
               <select value={selectedOwner} onChange={e => setSelectedOwner(e.target.value)} className="appearance-none w-40 px-3 py-2 bg-gray-50 border border-gray-200 rounded-md text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 cursor-pointer">
@@ -405,7 +418,7 @@ export default function OKRExplorer() {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
-                            {obj.category} • {obj.cycle}
+                            {obj.category} {obj.area ? ` • ${obj.area}` : ''} • {obj.cycle}
                             {objMeta[obj.id].isCross && (
                               <span className="ml-2 text-[9px] font-black text-[#D97706] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 uppercase tracking-widest leading-none translate-y-[-1px] inline-block">
                                 Cross OKR

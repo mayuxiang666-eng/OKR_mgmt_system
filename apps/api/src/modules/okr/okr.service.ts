@@ -16,6 +16,7 @@ export interface CreateObjectiveInput {
   cycleId?: string;
   title: string;
   category: string;
+  area?: string;
   priority?: string;
   status?: string;
   ownerUserId?: string;
@@ -52,6 +53,7 @@ export interface UpdateKrProgressInput {
 export interface UpdateObjectiveInput {
   title?: string;
   category?: string;
+  area?: string;
   priority?: string;
   status?: string;
   startDate?: string;
@@ -120,6 +122,7 @@ export class OkrService {
         ownerTeamId: input.ownerTeamId,
         title: input.title,
         category: input.category,
+        area: input.area,
         priority: input.priority ?? 'medium',
         status: input.status ?? 'not_started',
         startDate: input.startDate ? new Date(input.startDate) : null,
@@ -171,6 +174,7 @@ export class OkrService {
       data: {
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.category !== undefined ? { category: input.category } : {}),
+        ...(input.area !== undefined ? { area: input.area } : {}),
         ...(input.priority !== undefined ? { priority: input.priority } : {}),
         ...(input.status !== undefined ? { status: input.status } : {}),
         ...(input.startDate !== undefined ? { startDate: input.startDate ? new Date(input.startDate) : null } : {}),

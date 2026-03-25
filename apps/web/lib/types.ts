@@ -42,6 +42,7 @@ export interface Objective {
   id: string;
   title: string;
   category: OkrCategory;
+  area?: string;
   priority: OkrPriority;
   status: OkrProgress;
   cycle: string;

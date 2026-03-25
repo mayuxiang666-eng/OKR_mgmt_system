@@ -95,6 +95,7 @@ model Objective {
   startDate  DateTime?
   dueDate    DateTime?
   description String?  @db.Text
+  area       String?
   parentObjectiveId String?
   parent     Objective? @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
   children   Objective[] @relation("ObjectiveHierarchy")

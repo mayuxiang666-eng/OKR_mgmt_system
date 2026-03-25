@@ -25,7 +25,8 @@ export default function NewObjectiveModal() {
   ];
 
   const [title, setTitle] = useState('');
-  const [category, setCategory] = useState<OkrCategory>('Department');
+  const [category, setCategory] = useState<OkrCategory>('');
+  const [area, setArea] = useState<string>('');
   const [priority, setPriority] = useState<OkrPriority>('Medium');
   const [cycle, setCycle] = useState(defaultCycles[0]);
   const [assignedTo, setAssignedTo] = useState<string[]>([currentUser?.displayName || (users[0] ? users[0].displayName : 'Unassigned')]);
@@ -98,6 +99,7 @@ export default function NewObjectiveModal() {
       const createdObjective = await createObjective({
         title: title.trim(),
         category: finalCategory,
+        area: area || undefined,
         priority: normalizedPriority,
         startDate: effectiveStartDate,
         dueDate: effectiveDueDate,
@@ -144,6 +146,7 @@ export default function NewObjectiveModal() {
         id: createdObjective.id,
         title,
         category: finalCategory,
+        area,
         priority,
         cycle,
         assignedTo: assignedTo.join(' ; '),
@@ -165,7 +168,8 @@ export default function NewObjectiveModal() {
       });
 
       setTitle('');
-      setCategory('Department');
+      setCategory('');
+      setArea('');
       setPriority('Medium');
       setAssignedTo([currentUser?.displayName || (users[0] ? users[0].displayName : 'Unassigned')]);
       setStartDate('');
@@ -273,7 +277,7 @@ export default function NewObjectiveModal() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
                 <label className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1.5 block">Cycle</label>
                 <div className="relative">
@@ -284,6 +288,26 @@ export default function NewObjectiveModal() {
                     {defaultCycles.map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <ChevronDown className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1.5 block">Area</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    list="area-suggestions"
+                    value={area}
+                    onChange={(e) => setArea(e.target.value)}
+                    placeholder="e.g. Mixing 密炼"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-md py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 text-gray-900 font-medium"
+                  />
+                  <datalist id="area-suggestions">
+                    <option value="Mixing 密炼" />
+                    <option value="Hot preparation 热准备" />
+                    <option value="Curing 硫化" />
+                    <option value="Tire Building 成型" />
+                    <option value="Final finishing 终检" />
+                  </datalist>
                 </div>
               </div>
               <div>

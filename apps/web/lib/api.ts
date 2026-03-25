@@ -4,6 +4,7 @@ export interface Objective {
   id: string;
   title: string;
   category: string;
+  area?: string;
   priority: string;
   progressCached: number;
   confidenceCached: number;
@@ -36,6 +37,7 @@ export interface KeyResult {
 export interface CreateObjectiveInput {
   title: string;
   category: string;
+  area?: string;
   priority: 'critical' | 'high' | 'medium' | 'low';
   startDate?: string;
   dueDate?: string;
@@ -47,6 +49,7 @@ export interface CreateObjectiveInput {
 export interface UpdateObjectiveInput {
   title?: string;
   category?: string;
+  area?: string;
   priority?: 'critical' | 'high' | 'medium' | 'low';
   status?: 'not_started' | 'in_progress' | 'completed' | 'blocked' | 'behind';
   startDate?: string;

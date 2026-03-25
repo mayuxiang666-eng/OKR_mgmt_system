@@ -1,4 +1,4 @@
-﻿import { IsDateString, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsIn, IsOptional, IsString } from 'class-validator';
 
 export class UpdateObjectiveDto {
   @IsOptional()
@@ -8,6 +8,10 @@ export class UpdateObjectiveDto {
   @IsOptional()
   @IsString()
   category?: string;
+
+  @IsOptional()
+  @IsString()
+  area?: string;
 
   @IsOptional()
   @IsIn(['critical', 'high', 'medium', 'low'])

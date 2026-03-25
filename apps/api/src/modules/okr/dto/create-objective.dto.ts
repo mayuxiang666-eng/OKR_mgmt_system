@@ -16,6 +16,10 @@ export class CreateObjectiveDto {
   category!: string;
 
   @IsOptional()
+  @IsString()
+  area?: string;
+
+  @IsOptional()
   @IsIn(['critical', 'high', 'medium', 'low'])
   priority?: 'critical' | 'high' | 'medium' | 'low';
 
