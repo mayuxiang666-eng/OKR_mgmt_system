@@ -1,4 +1,4 @@
-﻿export type UiHealthStatus = 'onTrack' | 'atRisk' | 'offTrack';
+export type UiHealthStatus = 'onTrack' | 'atRisk' | 'offTrack';
 
 export interface Objective {
   id: string;
@@ -40,6 +40,7 @@ export interface CreateObjectiveInput {
   startDate?: string;
   dueDate?: string;
   notes?: string;
+  ownerUserId?: string;
 }
 
 export interface UpdateObjectiveInput {
@@ -93,6 +94,7 @@ export interface AuthUser {
   displayName: string;
   email: string;
   role: string;
+  deptId?: string | null;
 }
 
 export interface AuthResult {
@@ -114,15 +116,38 @@ export interface RegisterInput {
   password: string;
 }
 
+export interface Notification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'assignment' | 'modification' | 'deadline';
+  link?: string;
+  isRead: boolean;
+  createdAt: string;
+}
+
 const API_BASE = '/backend-api';
 
+let authToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string> || {}),
+  };
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options?.headers || {}),
-    },
+    headers,
     cache: 'no-store',
   });
 
@@ -235,5 +260,25 @@ export function registerWithPassword(input: RegisterInput) {
   return request<AuthResult>('/auth/register', {
     method: 'POST',
     body: JSON.stringify(input),
+  });
+}
+
+export function listUsers() {
+  return request<AuthUser[]>('/auth/users');
+}
+
+export function listNotifications(userId: string) {
+  return request<Notification[]>(`/notifications?userId=${encodeURIComponent(userId)}`);
+}
+
+export function markNotificationRead(id: string) {
+  return request<Notification>(`/notifications/${id}/read`, {
+    method: 'PATCH',
+  });
+}
+
+export function markAllNotificationsRead(userId: string) {
+  return request<{ count: number }>(`/notifications/read-all?userId=${encodeURIComponent(userId)}`, {
+    method: 'PATCH',
   });
 }

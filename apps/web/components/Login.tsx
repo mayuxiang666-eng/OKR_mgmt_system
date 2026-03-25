@@ -29,7 +29,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,7 +80,7 @@ export default function Login() {
           ? await loginWithPassword({ email: email.trim(), password })
           : await registerWithPassword({ displayName: displayName.trim(), email: email.trim(), password });
 
-      login(auth.user.displayName, rememberMe);
+      login(auth.user, auth.access_token, rememberMe);
     } catch (err) {
       setError(readErrorMessage(err));
     } finally {

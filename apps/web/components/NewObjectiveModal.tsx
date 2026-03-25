@@ -1,13 +1,15 @@
 'use client';
 
 import { useOkrStore } from '../lib/store';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Plus, Trash, ChevronDown } from 'lucide-react';
 import { OkrCategory, OkrPriority } from '../lib/types';
 import { createKeyResult, createObjective } from '../lib/api';
+import { useI18n } from '../lib/i18n';
 
 export default function NewObjectiveModal() {
   const { objectives, isNewObjModalOpen, setNewObjModalOpen, addObjective, users, currentUser } = useOkrStore();
+  const { t } = useI18n();
   
   // Extract unique categories for suggestions
   const existingCategories = Array.from(new Set(objectives.map(o => o.category))).filter((x): x is string => !!x).sort();
@@ -25,10 +27,18 @@ export default function NewObjectiveModal() {
   const [category, setCategory] = useState<OkrCategory>('Department');
   const [priority, setPriority] = useState<OkrPriority>('Medium');
   const [cycle, setCycle] = useState(defaultCycles[0]);
-  const [assignedTo, setAssignedTo] = useState<string[]>([currentUser || users[0] || 'Unassigned']);
+  const [assignedTo, setAssignedTo] = useState<string[]>([currentUser?.displayName || (users[0] ? users[0].displayName : 'Unassigned')]);
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [isCrossOkr, setIsCrossOkr] = useState(false);
   
+  // Update default assignedTo when modal opens or currentUser changes
+  useEffect(() => {
+    if (isNewObjModalOpen) {
+      setAssignedTo([currentUser?.displayName || 'Unassigned']);
+    }
+  }, [isNewObjModalOpen, currentUser]);
+
   // Dynamic KRs state
   const [krs, setKrs] = useState([{ title: '', targetValue: 100, unit: '%', confidenceScore: 5, businessNeed: '' }]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,12 +78,19 @@ export default function NewObjectiveModal() {
     const effectiveDueDate = dueDate || new Date().toISOString().split('T')[0];
 
     try {
+      const primaryOwnerName = assignedTo[0];
+      const primaryOwner = users.find(u => u.displayName === primaryOwnerName);
+      const ownerUserId = primaryOwner?.id;
+
+      const finalCategory = isCrossOkr ? 'Cross-OKR' : category;
+
       const createdObjective = await createObjective({
         title: title.trim(),
-        category,
+        category: finalCategory,
         priority: normalizedPriority,
         startDate: effectiveStartDate,
         dueDate: effectiveDueDate,
+        ownerUserId,
         notes: '',
       });
 
@@ -115,7 +132,7 @@ export default function NewObjectiveModal() {
       addObjective({
         id: createdObjective.id,
         title,
-        category,
+        category: finalCategory,
         priority,
         cycle,
         assignedTo: assignedTo.join(' ; '),
@@ -126,7 +143,7 @@ export default function NewObjectiveModal() {
         keyResults: generatedKrs,
         businessNeeds: '',
         confidenceScore: 3,
-        notes: '',
+        notes: isCrossOkr ? '[Cross-OKR]' : '',
         statusIndicators: '',
         currentMonthFocus: '',
         nextMonthFocus: '',
@@ -139,9 +156,10 @@ export default function NewObjectiveModal() {
       setTitle('');
       setCategory('Department');
       setPriority('Medium');
-      setAssignedTo([currentUser || users[0] || 'Unassigned']);
+      setAssignedTo([currentUser?.displayName || (users[0] ? users[0].displayName : 'Unassigned')]);
       setStartDate('');
       setDueDate('');
+      setIsCrossOkr(false);
       setKrs([{ title: '', targetValue: 100, unit: '%', confidenceScore: 5, businessNeed: '' }]);
 
       setNewObjModalOpen(false);
@@ -181,17 +199,17 @@ export default function NewObjectiveModal() {
                 <label className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1.5 block">Assigned To (Multi-Select)</label>
                 <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-2 h-24 overflow-y-auto">
                   {users.map(u => (
-                    <label key={u} className="flex items-center gap-2 mb-1 p-1 hover:bg-gray-100 rounded cursor-pointer">
+                    <label key={u.id} className="flex items-center gap-2 mb-1 p-1 hover:bg-gray-100 rounded cursor-pointer">
                       <input 
                         type="checkbox" 
-                        checked={assignedTo.includes(u)} 
+                        checked={assignedTo.includes(u.displayName)} 
                         onChange={(e) => {
-                          if (e.target.checked) setAssignedTo([...assignedTo, u]);
-                          else setAssignedTo(assignedTo.filter(a => a !== u));
+                          if (e.target.checked) setAssignedTo([...assignedTo, u.displayName]);
+                          else setAssignedTo(assignedTo.filter(a => a !== u.displayName));
                         }} 
                         className="rounded border-gray-300 text-[#D97706] focus:ring-[#D97706]"
                       />
-                      <span className="text-sm font-medium text-gray-900">{u}</span>
+                      <span className="text-sm font-medium text-gray-900">{u.displayName}</span>
                     </label>
                   ))}
                 </div>
@@ -265,6 +283,19 @@ export default function NewObjectiveModal() {
                   className="w-full bg-gray-50 border border-gray-200 rounded-md py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706]/50 text-gray-900 font-medium" 
                 />
               </div>
+            </div>
+
+            <div className="flex items-center gap-2 py-2 px-1 bg-orange-50/50 rounded-lg border border-orange-100/50">
+              <input 
+                id="is-cross-okr"
+                type="checkbox" 
+                checked={isCrossOkr} 
+                onChange={(e) => setIsCrossOkr(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-[#D97706] focus:ring-[#D97706]"
+              />
+              <label htmlFor="is-cross-okr" className="text-sm font-bold text-[#D97706] cursor-pointer">
+                {t('isCrossOkr')}
+              </label>
             </div>
           </div>
 

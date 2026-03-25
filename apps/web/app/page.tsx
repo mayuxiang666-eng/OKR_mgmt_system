@@ -22,6 +22,7 @@ export default function OKRExplorer() {
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   // themeFilter: theme name | null
   const [themeFilter, setThemeFilter] = useState<string | null>(null);
+  const [showOnlyCrossOkr, setShowOnlyCrossOkr] = useState(false);
 
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -53,8 +54,8 @@ export default function OKRExplorer() {
     'Other Strategic Goals': { onTrack: 0, atRisk: 0, offTrack: 0, total: 0 },
   };
 
-  // Map each objective to a status + theme
-  const objMeta: Record<string, { status: 'onTrack' | 'atRisk' | 'offTrack'; theme: string }> = {};
+  // Map each objective to a status + theme + cross flag
+  const objMeta: Record<string, { status: 'onTrack' | 'atRisk' | 'offTrack'; theme: string; isCross: boolean }> = {};
 
   objectives.forEach(obj => {
     // ── Traffic light based on manual status selector ───────────────────────
@@ -71,20 +72,21 @@ export default function OKRExplorer() {
     if (s === 'atRisk') allAtRisk++;
     if (s === 'offTrack') allOffTrack++;
 
-    const t = (obj.title + ' ' + obj.category + ' ' + (obj.notes || '')).toLowerCase();
-    if (t.includes('cross') || (obj.assignedTo || '').includes(' ; ')) crossCount++;
-    if (t.includes('task force') || t.includes('committee') || obj.priority === 'Critical') taskForceCount++;
+    const searchStr = (obj.title + ' ' + obj.category + ' ' + (obj.notes || '')).toLowerCase();
+    const isCross = obj.category === 'Cross-OKR' || searchStr.includes('cross') || (obj.assignedTo || '').includes(' ; ');
+    if (isCross) crossCount++;
+    if (searchStr.includes('task force') || searchStr.includes('committee') || obj.priority === 'Critical') taskForceCount++;
 
     let theme = 'Other Strategic Goals';
-    if (t.includes('scrap') || t.includes('waste')) theme = 'Scrap Reduction';
-    else if (t.includes('process') || t.includes('lean') || obj.category.includes('Process maturity')) theme = 'Process Maturity';
-    else if (t.includes('reliab') || t.includes('stabil') || t.includes('qual')) theme = 'Reliability / Stability';
-    else if (t.includes('digit') || t.includes('smart') || t.includes('system') || t.includes('tool')) theme = 'Digitalization & Smart Mfg';
-    else if (t.includes('team') || t.includes('train') || t.includes('capab') || t.includes('perform') || t.includes('talent')) theme = 'Team & Capability';
+    if (searchStr.includes('scrap') || searchStr.includes('waste')) theme = 'Scrap Reduction';
+    else if (searchStr.includes('process') || searchStr.includes('lean') || obj.category.includes('Process maturity')) theme = 'Process Maturity';
+    else if (searchStr.includes('reliab') || searchStr.includes('stabil') || searchStr.includes('qual')) theme = 'Reliability / Stability';
+    else if (searchStr.includes('digit') || searchStr.includes('smart') || searchStr.includes('system') || searchStr.includes('tool')) theme = 'Digitalization & Smart Mfg';
+    else if (searchStr.includes('team') || searchStr.includes('train') || searchStr.includes('capab') || searchStr.includes('perform') || searchStr.includes('talent')) theme = 'Team & Capability';
 
     themeStats[theme][s]++;
     themeStats[theme].total++;
-    objMeta[obj.id] = { status: s, theme };
+    objMeta[obj.id] = { status: s, theme, isCross };
   });
 
   const activeThemes = Object.entries(themeStats).filter(([_, d]) => d.total > 0).sort((a, b) => b[1].total - a[1].total);
@@ -110,14 +112,14 @@ export default function OKRExplorer() {
     scrollToList();
   };
 
-  const clearChartFilter = () => { setStatusFilter(null); setThemeFilter(null); };
+  const clearChartFilter = () => { setStatusFilter(null); setThemeFilter(null); setShowOnlyCrossOkr(false); };
 
   // ── Filter list ───────────────────────────────────────────────────────────
   const filteredObjectives = objectives.filter(obj => {
     if (selectedCycle !== 'All Cycles' && obj.cycle !== selectedCycle) return false;
     if (selectedCategory !== 'All Categories' && obj.category !== selectedCategory) return false;
     if (selectedOwner === 'My Objectives') {
-      if (!currentUser || !(obj.assignedTo || '').includes(currentUser)) return false;
+      if (!currentUser || !(obj.assignedTo || '').includes(currentUser.displayName)) return false;
     } else if (selectedOwner !== 'All Owners') {
       if (!(obj.assignedTo || '').includes(selectedOwner)) return false;
     }
@@ -129,6 +131,7 @@ export default function OKRExplorer() {
     const meta = objMeta[obj.id];
     if (statusFilter && meta?.status !== statusFilter) return false;
     if (themeFilter && meta?.theme !== themeFilter) return false;
+    if (showOnlyCrossOkr && !meta?.isCross) return false;
     return true;
   });
 
@@ -151,7 +154,7 @@ export default function OKRExplorer() {
   };
 
   const totalOkr = allOkrCount;
-  const activeFilter = statusFilter || themeFilter;
+  const activeFilter = statusFilter || themeFilter || showOnlyCrossOkr;
 
   const handleDeleteObjective = async (id: string, title: string) => {
     if (!confirm(`${t('deleteObjectiveConfirm')}\n\n${title}`)) return;
@@ -190,10 +193,13 @@ export default function OKRExplorer() {
               <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('total')}</span>
             </div>
             <div className="w-px h-10 bg-gray-200 mt-1" />
-            <div className="flex flex-col text-right">
+            <button 
+              onClick={() => { setShowOnlyCrossOkr(!showOnlyCrossOkr); setStatusFilter(null); setThemeFilter(null); scrollToList(); }}
+              className={cn("flex flex-col text-right transition-all hover:scale-105 px-2 py-1 rounded-lg", showOnlyCrossOkr ? "bg-orange-100 ring-1 ring-orange-200" : "hover:bg-gray-100")}
+            >
               <span className="text-2xl font-black text-[#D97706]">{crossCount}</span>
               <span className="text-[10px] text-gray-400 uppercase tracking-wider">{t('crossOkr')}</span>
-            </div>
+            </button>
             <div className="w-px h-10 bg-gray-200 mt-1" />
             <div className="flex flex-col text-right">
               <span className="text-2xl font-black text-blue-600">{taskForceCount}</span>
@@ -398,7 +404,14 @@ export default function OKRExplorer() {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">{obj.category} • {obj.cycle}</span>
+                          <span className="text-[10px] font-bold text-gray-400 tracking-wider uppercase">
+                            {obj.category} • {obj.cycle}
+                            {objMeta[obj.id].isCross && (
+                              <span className="ml-2 text-[9px] font-black text-[#D97706] bg-orange-50 px-1.5 py-0.5 rounded border border-orange-100 uppercase tracking-widest leading-none translate-y-[-1px] inline-block">
+                                Cross OKR
+                              </span>
+                            )}
+                          </span>
                           <span className={cn('text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 border rounded-sm', getPriorityClasses(obj.priority))}>{obj.priority}</span>
                         </div>
                         <Link href={`/objective/${obj.id}`} className="text-xl font-semibold text-gray-900 hover:text-[#D97706] transition-colors">

@@ -5,14 +5,23 @@ import { FormEvent, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AlignmentTree } from '../../components/AlignmentTree';
 import { ObjectiveCard } from '../../components/ObjectiveCard';
-import { createObjective, listObjectives, normalizeProgress, toUiHealthStatus } from '../../lib/api';
+import { createObjective, listObjectives, listUsers, normalizeProgress, toUiHealthStatus } from '../../lib/api';
+import { useOkrStore } from '../../lib/store';
 
 export default function OkrTreePage() {
+  const { currentUser } = useOkrStore();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Department');
   const [priority, setPriority] = useState<'critical' | 'high' | 'medium' | 'low'>('high');
+  const [ownerUserId, setOwnerUserId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('All');
   const [error, setError] = useState<string | null>(null);
+
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: () => listUsers(),
+  });
 
   const objectivesQuery = useQuery({
     queryKey: ['objectives'],
@@ -25,6 +34,7 @@ export default function OkrTreePage() {
       setTitle('');
       setCategory('Department');
       setPriority('high');
+      setOwnerUserId('');
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ['objectives'] });
     },
@@ -54,8 +64,25 @@ export default function OkrTreePage() {
       title: title.trim(),
       category,
       priority,
+      ownerUserId: ownerUserId || undefined,
     });
   };
+
+  const onOwnerChange = (id: string) => {
+    setOwnerUserId(id);
+    const selectedUser = usersQuery.data?.find(u => u.id === id);
+    if (selectedUser && currentUser && selectedUser.deptId !== currentUser.deptId) {
+      setCategory('Cross-OKR');
+    }
+  };
+
+  const filteredObjectives = useMemo(() => {
+    const objectives = objectivesQuery.data || [];
+    if (activeTab === 'All') return objectives;
+    return objectives.filter(o => o.category === activeTab);
+  }, [objectivesQuery.data, activeTab]);
+
+  const categories = ['All', 'Department', 'Cross-OKR', 'Individual_Team', 'Individual_Performance', 'Process_maturity'];
 
   return (
     <div className="space-y-6">
@@ -71,14 +98,27 @@ export default function OkrTreePage() {
         />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <select
-            className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
             value={category}
             onChange={(event) => setCategory(event.target.value)}
           >
             <option value="Department">Department</option>
+            <option value="Cross-OKR">Cross-OKR</option>
             <option value="Individual_Team">Individual_Team</option>
             <option value="Individual_Performance">Individual_Performance</option>
             <option value="Process_maturity">Process_maturity</option>
+          </select>
+          <select
+            className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-slate-100"
+            value={ownerUserId}
+            onChange={(event) => onOwnerChange(event.target.value)}
+          >
+            <option value="">Select Owner</option>
+            {usersQuery.data?.map(user => (
+              <option key={user.id} value={user.id}>
+                {user.displayName} ({user.deptId || 'No Dept'})
+              </option>
+            ))}
           </select>
           <select
             className="bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm"
@@ -108,8 +148,24 @@ export default function OkrTreePage() {
         {!objectivesQuery.isLoading && !objectivesQuery.isError && <AlignmentTree data={treeData} />}
       </div>
 
+      <div className="flex gap-2 overflow-x-auto pb-2">
+        {categories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setActiveTab(cat)}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition ${
+              activeTab === cat 
+                ? 'bg-sky-600 text-white' 
+                : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+            }`}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {(objectivesQuery.data || []).map((objective) => (
+        {filteredObjectives.map((objective) => (
           <Link key={objective.id} href={`/okr/${objective.id}`}>
             <ObjectiveCard
               id={objective.id}

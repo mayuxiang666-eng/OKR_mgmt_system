@@ -10,11 +10,11 @@ import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCo
 import { KeyResult } from '../../../lib/types';
 import KRDetailModal from '../../../components/KRDetailModal';
 import { useI18n } from '../../../lib/i18n';
-import { createKeyResult, deleteKeyResult as deleteKeyResultRequest, updateKeyResult as updateKeyResultRequest, updateObjective as updateObjectiveRequest } from '../../../lib/api';
+import { getObjective, createKeyResult, deleteKeyResult as deleteKeyResultRequest, updateKeyResult as updateKeyResultRequest, updateObjective as updateObjectiveRequest } from '../../../lib/api';
 import { encodeObjectiveMeta } from '../../../lib/objectiveDetails';
 
 export default function ObjectiveDashboardPage({ params }: { params: { id: string } }) {
-  const { objectives, addCheckIn, addKr, updateKr, deleteKr, updateObjective: updateObjectiveLocal, currentUser, users } = useOkrStore();
+  const { objectives, addCheckIn, addKr, updateKr, deleteKr, updateObjective: updateObjectiveLocal, currentUser, users, addObjective } = useOkrStore();
   const { t } = useI18n();
   const obj = objectives.find(o => o.id === params.id);
   
@@ -36,6 +36,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     lastReviewDate: '',
     plannedNextReviewDate: '',
     reviewComment: '',
+    isCrossOkr: false,
   });
 
   // Checkin State
@@ -60,9 +61,62 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         lastReviewDate: obj.lastReviewDate || '',
         plannedNextReviewDate: obj.plannedNextReviewDate || '',
         reviewComment: obj.reviewComment || '',
+        isCrossOkr: obj.category === 'Cross-OKR',
       });
     }
   }, [obj, isEditingDetails]);
+
+  const [isPageLoading, setIsPageLoading] = useState(!obj);
+
+  useEffect(() => {
+    if (!obj && params.id) {
+      const fetchMissing = async () => {
+        try {
+          const fetched = await getObjective(params.id) as any;
+          addObjective(fetched);
+        } catch (err) {
+          console.error('Failed to fetch missing objective:', err);
+        } finally {
+          setIsPageLoading(false);
+        }
+      };
+      fetchMissing();
+    } else if (obj) {
+      setIsPageLoading(false);
+    }
+  }, [obj, params.id, addObjective]);
+  
+  const chartData = useMemo(() => {
+    const data = [];
+    const weeks = 8;
+    const currentProg = obj?.progress || 0;
+    
+    for (let i = 1; i <= weeks; i++) {
+       let historicalVal = null;
+       let projectionVal = null;
+
+       if (i === 1) historicalVal = Math.max(0, currentProg - 40);
+       else if (i === 2) historicalVal = Math.max(0, currentProg - 30);
+       else if (i === 3) historicalVal = Math.max(0, currentProg - 20);
+       else if (i === 4) historicalVal = Math.max(0, currentProg - 10);
+       else if (i === 5) historicalVal = currentProg; // Today
+       else projectionVal = Math.min(100, currentProg + ((100 - currentProg) / (weeks - 5)) * (i - 5));
+
+       data.push({ name: `W${i}`, actual: historicalVal, projection: projectionVal });
+    }
+    return data;
+  }, [obj?.progress]);
+
+  if (isPageLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-[#D97706]/20 border-t-[#D97706] rounded-full animate-spin"></div>
+          <p className="text-sm font-medium text-gray-500">{t('loading')}...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!obj) return notFound();
 
@@ -175,13 +229,14 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     if (localDetails.lastReviewDate !== obj.lastReviewDate) changes.push(`${t('detailLatestReviewPast')}: ${localDetails.lastReviewDate || t('detailCleared')}`);
     if (localDetails.plannedNextReviewDate !== obj.plannedNextReviewDate) changes.push(`${t('detailPlannedNextReview')}: ${localDetails.plannedNextReviewDate || t('detailCleared')}`);
     if (localDetails.reviewComment !== obj.reviewComment) changes.push(`${t('detailLeadershipComment')}:\n"${localDetails.reviewComment || t('detailCleared')}"`);
+    if (localDetails.isCrossOkr !== (obj.category === 'Cross-OKR')) changes.push(`${t('isCrossOkr')}: ${localDetails.isCrossOkr ? 'Yes' : 'No'}`);
 
     const newHistory = [...(obj.history || [])];
     if (changes.length > 0) {
       newHistory.unshift({
         id: `log-${Date.now()}`,
         type: 'field-update',
-        author: currentUser || 'Current User',
+        author: currentUser?.displayName || 'Current User',
         timestamp: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' • ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
         comment: `${t('detailUpdatedStrategicFields')}\n• ${changes.join('\n\n• ')}`,
       });
@@ -206,6 +261,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         description: metaDescription,
         lastReviewDate: localDetails.lastReviewDate || undefined,
         plannedNextReviewDate: localDetails.plannedNextReviewDate || undefined,
+        category: localDetails.isCrossOkr ? 'Cross-OKR' : (obj.category === 'Cross-OKR' ? 'Department' : obj.category),
       });
 
       updateObjectiveLocal(obj.id, { ...localDetails, history: newHistory });
@@ -249,26 +305,6 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     }
   };
 
-  const chartData = useMemo(() => {
-    const data = [];
-    const weeks = 8;
-    const currentProg = obj.progress || 0;
-    
-    for (let i = 1; i <= weeks; i++) {
-       let historicalVal = null;
-       let projectionVal = null;
-
-       if (i === 1) historicalVal = Math.max(0, currentProg - 40);
-       else if (i === 2) historicalVal = Math.max(0, currentProg - 30);
-       else if (i === 3) historicalVal = Math.max(0, currentProg - 20);
-       else if (i === 4) historicalVal = Math.max(0, currentProg - 10);
-       else if (i === 5) historicalVal = currentProg; // Today
-       else projectionVal = Math.min(100, currentProg + ((100 - currentProg) / (weeks - 5)) * (i - 5));
-
-       data.push({ name: `W${i}`, actual: historicalVal, projection: projectionVal });
-    }
-    return data;
-  }, [obj.progress]);
 
   return (
     <>
@@ -578,12 +614,32 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
                   <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">{t('assignedTo')}</p>
                   {isEditingDetails ? (
                     <select value={localDetails.assignedTo} onChange={e => setLocalDetails({ ...localDetails, assignedTo: e.target.value })} className="w-full border rounded outline-none p-1.5 text-sm font-semibold">
-                      {users.map(u => <option key={u}>{u}</option>)}
+                      {users.map(u => <option key={u.id} value={u.displayName}>{u.displayName}</option>)}
                     </select>
                   ) : (
                     <p className="text-sm font-semibold flex items-center gap-2 text-gray-900"><User className="w-4 h-4 text-gray-400"/> {obj.assignedTo}</p>
                   )}
                 </div>
+
+                <div className="flex items-center gap-2 pt-2 pb-1">
+                  {isEditingDetails ? (
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                      <input 
+                        type="checkbox" 
+                        checked={localDetails.isCrossOkr} 
+                        onChange={e => setLocalDetails({ ...localDetails, isCrossOkr: e.target.checked })} 
+                        className="w-4 h-4 rounded border-gray-300 text-[#D97706] focus:ring-[#D97706]"
+                      />
+                      <span className="text-sm font-bold text-gray-700 group-hover:text-[#D97706] transition-colors">{t('isCrossOkr')}</span>
+                    </label>
+                  ) : obj.category === 'Cross-OKR' ? (
+                    <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#D97706] animate-pulse" />
+                      <span className="text-xs font-black text-[#D97706] uppercase tracking-wider">{t('isCrossOkr')}</span>
+                    </div>
+                  ) : null}
+                </div>
+
                 <div className="flex gap-4 border-t border-gray-50 pt-4">
                   <div className="flex-1">
                     <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">{t('detailStartDate')}</p>

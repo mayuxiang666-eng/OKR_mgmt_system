@@ -7,6 +7,7 @@ import { ReviewModule } from './modules/review/review.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { NotificationModule } from './modules/notification/notification.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { PrismaModule } from './prisma/prisma.module';
     ReviewModule,
     DashboardModule,
     IntegrationModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}

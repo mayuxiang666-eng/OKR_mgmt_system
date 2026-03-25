@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import { Search, Bell, LogOut, Languages } from 'lucide-react';
 import { useOkrStore } from '../lib/store';
 import { useI18n } from '../lib/i18n';
+import NotificationCenter from './NotificationCenter';
 
 export default function Topnav() {
   const { currentUser, logout, searchQuery, setSearchQuery } = useOkrStore();
@@ -37,18 +38,15 @@ export default function Topnav() {
           {language === 'zh' ? 'EN' : '中文'}
         </button>
 
-        <button className="relative p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-50">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-2 right-2.5 w-2 h-2 bg-[#D97706] rounded-full ring-2 ring-white"></span>
-        </button>
+        <NotificationCenter />
 
         <div className="flex items-center gap-3 pl-6 border-l border-gray-100">
           <div className="text-right hidden md:block">
-            <p className="text-sm font-semibold text-gray-900">{currentUser}</p>
+            <p className="text-sm font-semibold text-gray-900">{currentUser?.displayName}</p>
             <p className="text-xs text-gray-500 font-medium tracking-wide">{t('companyOrg')}</p>
           </div>
           <div className="w-9 h-9 bg-gradient-to-br from-[#D97706] to-[#8B5F2E] rounded-full text-white flex items-center justify-center font-bold shadow-sm shadow-orange-900/20 text-sm">
-            {currentUser?.charAt(0) || 'U'}
+            {currentUser?.displayName?.charAt(0) || 'U'}
           </div>
           <button onClick={logout} className="ml-2 p-2 text-gray-400 hover:text-red-600 transition-colors rounded-full hover:bg-red-50" title={t('signOut')}>
             <LogOut className="w-4 h-4" />

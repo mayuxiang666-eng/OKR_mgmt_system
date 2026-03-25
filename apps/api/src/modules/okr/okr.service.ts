@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationService } from '../notification/notification.service';
 
 export interface CreateCycleInput {
   orgId?: string;
@@ -81,7 +82,10 @@ export interface CreateAlignmentInput {
 
 @Injectable()
 export class OkrService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   async createCycle(input: CreateCycleInput) {
     const org = await this.resolveOrganization(input.orgId);
@@ -108,7 +112,7 @@ export class OkrService {
     const org = await this.resolveOrganization(input.orgId);
     const cycleId = input.cycleId ?? (await this.resolveDefaultCycle(org.id)).id;
 
-    return this.prisma.objective.create({
+    const objective = await this.prisma.objective.create({
       data: {
         orgId: org.id,
         cycleId,
@@ -126,6 +130,18 @@ export class OkrService {
       },
       include: { keyResults: true },
     });
+    
+    if (objective.ownerUserId) {
+      await this.notificationService.create({
+        userId: objective.ownerUserId,
+        title: 'New OKR Assigned',
+        message: `You have been assigned as the owner of "${objective.title}"`,
+        type: 'assignment',
+        link: `/objective/${objective.id}`,
+      });
+    }
+
+    return objective;
   }
 
   async listObjectives(cycleId?: string) {
@@ -176,6 +192,16 @@ export class OkrService {
         owner: { select: { id: true, displayName: true, email: true } },
       },
     });
+
+    if (updated.ownerUserId) {
+      await this.notificationService.create({
+        userId: updated.ownerUserId,
+        title: 'OKR Updated',
+        message: `The OKR "${updated.title}" has been updated.`,
+        type: 'modification',
+        link: `/objective/${updated.id}`,
+      });
+    }
 
     return updated;
   }

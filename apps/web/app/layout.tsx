@@ -8,7 +8,7 @@ import { Providers } from "./providers";
 const inter = Inter({ subsets: ["latin"], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: "Stitch OKR",
+  title: "Hefei Factory OKR Platform",
   description: "Organizational Key Results tracking platform",
 };
 

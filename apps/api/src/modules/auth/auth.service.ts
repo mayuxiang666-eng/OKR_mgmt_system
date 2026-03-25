@@ -14,6 +14,7 @@ type AuthResult = {
     displayName: string;
     email: string;
     role: string;
+    deptId?: string | null;
   };
 };
 
@@ -79,6 +80,18 @@ export class AuthService {
     };
   }
 
+  async getUsers() {
+    return this.prisma.user.findMany({
+      select: {
+        id: true,
+        displayName: true,
+        email: true,
+        role: true,
+        deptId: true,
+      },
+    });
+  }
+
   private async resolveOrganization() {
     const existing = await this.prisma.organization.findFirst({ orderBy: { createdAt: 'asc' } });
     if (existing) {
@@ -123,7 +136,7 @@ export class AuthService {
     return `${prefix}-${randomBytes(24).toString('hex')}`;
   }
 
-  private buildAuthResult(user: { id: string; displayName: string; email: string; role: string }): AuthResult {
+  private buildAuthResult(user: { id: string; displayName: string; email: string; role: string; deptId?: string | null }): AuthResult {
     return {
       access_token: this.issueToken('access'),
       refresh_token: this.issueToken('refresh'),
@@ -134,6 +147,7 @@ export class AuthService {
         displayName: user.displayName,
         email: user.email,
         role: user.role,
+        deptId: user.deptId,
       },
     };
   }

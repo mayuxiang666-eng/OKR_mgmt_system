@@ -7,19 +7,48 @@
 }
 
 body {
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #0f172a;
-  color: #e2e8f0;
+  font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+  background: #FDFCFB;
+  color: #111827;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
-a {
-  color: #38bdf8;
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F9FAFB;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #E5E7EB;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #D1D5DB;
 }
 
 .card {
-  background: #111827;
-  border: 1px solid #1f2937;
-  border-radius: 12px;
-  padding: 16px;
+  background: white;
+  border: 1px solid #F3F4F6;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+.auth-gradient {
+  background: linear-gradient(135deg, #FDFCFB 0%, #FFF7ED 100%);
+}
+
+.accent-orange {
+  color: #D97706;
+}
+
+.bg-accent-orange {
+  background-color: #D97706;
 }

@@ -62,6 +62,7 @@ model User {
   tasks      Task[]
   auditLogs  AuditLog[]
   reviews    Review[]
+  notifications Notification[]
 }
 
 model OkrCycle {
@@ -87,13 +88,13 @@ model Objective {
   ownerUserId String?
   ownerTeam  Team?    @relation(fields: [ownerTeamId], references: [id])
   ownerTeamId String?
-  title      String
+  title      String   @db.VarChar(1000)
   category   String
   priority   String
   status     String
   startDate  DateTime?
   dueDate    DateTime?
-  description String?
+  description String?  @db.Text
   parentObjectiveId String?
   parent     Objective? @relation("ObjectiveHierarchy", fields: [parentObjectiveId], references: [id])
   children   Objective[] @relation("ObjectiveHierarchy")
@@ -112,7 +113,7 @@ model KeyResult {
   id        String   @id @default(cuid())
   objective Objective @relation(fields: [objectiveId], references: [id])
   objectiveId String
-  title     String
+  title     String   @db.VarChar(1000)
   metricType String
   unit      String?
   target    Float
@@ -254,3 +255,14 @@ model AuditLog {
 }
 
 
+model Notification {
+  id        String   @id @default(cuid())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  title     String
+  message   String
+  type      String   // 'assignment', 'modification', 'deadline'
+  link      String?  // Deep link to objective or task
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

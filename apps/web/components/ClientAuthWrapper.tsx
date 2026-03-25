@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AppLanguage, useOkrStore } from '../lib/store';
-import { listObjectives } from '../lib/api';
+import { listObjectives, listUsers } from '../lib/api';
 import { Objective as UiObjective, OkrProgress } from '../lib/types';
 import { decodeObjectiveMeta } from '../lib/objectiveDetails';
 import Login from './Login';
@@ -64,7 +64,7 @@ function dateOnly(value?: string | null): string {
   return value.slice(0, 10);
 }
 
-function mapApiObjectiveToUi(api: ApiObjective, fallbackUser: string | null): UiObjective {
+function mapApiObjectiveToUi(api: ApiObjective, fallbackName: string | null): UiObjective {
   const { meta, legacyNotes } = decodeObjectiveMeta(api.description);
 
   return {
@@ -74,7 +74,7 @@ function mapApiObjectiveToUi(api: ApiObjective, fallbackUser: string | null): Ui
     priority: mapPriority(api.priority),
     status: mapStatus(api.status),
     cycle: api.cycleId || 'Current Cycle',
-    assignedTo: meta.assignedTo || api.owner?.displayName || fallbackUser || 'Unassigned',
+    assignedTo: meta.assignedTo || api.owner?.displayName || fallbackName || 'Unassigned',
     startDate: dateOnly(api.startDate),
     dueDate: dateOnly(api.dueDate),
     progress: toPercent(api.progressCached),
@@ -102,16 +102,23 @@ function mapApiObjectiveToUi(api: ApiObjective, fallbackUser: string | null): Ui
 }
 
 export default function ClientAuthWrapper({ children }: { children: React.ReactNode }) {
-  const { currentUser, replaceObjectives, setLanguage } = useOkrStore();
+  const { currentUser, replaceObjectives, setLanguage, setUsers } = useOkrStore();
+  const [mounted, setMounted] = useState(false);
+
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
     const saved = window.localStorage.getItem('app_language');
     if (saved === 'en' || saved === 'zh') {
       setLanguage(saved as AppLanguage);
     }
-  }, [setLanguage]);
+  }, [mounted, setLanguage]);
 
   useEffect(() => {
-    if (!currentUser) return;
+    if (!mounted || !currentUser) return;
 
     let disposed = false;
 
@@ -119,7 +126,7 @@ export default function ClientAuthWrapper({ children }: { children: React.ReactN
       try {
         const apiObjectives = (await listObjectives()) as unknown as ApiObjective[];
         if (disposed) return;
-        const mapped = apiObjectives.map((item) => mapApiObjectiveToUi(item, currentUser));
+        const mapped = apiObjectives.map((item) => mapApiObjectiveToUi(item, currentUser?.displayName || null));
         replaceObjectives(mapped);
       } catch (error) {
         // Keep current in-memory data when backend fetch fails.
@@ -130,13 +137,35 @@ export default function ClientAuthWrapper({ children }: { children: React.ReactN
     void syncFromDb();
     const timer = setInterval(() => {
       void syncFromDb();
+      void syncUsers();
     }, 5000);
+
+    // Sync users list
+    const syncUsers = async () => {
+      try {
+        const apiUsers = await listUsers();
+        if (disposed) return;
+        // Ensure current user is in the list
+        const finalUsers = [...apiUsers];
+        if (currentUser && !finalUsers.some(u => u.id === currentUser.id)) {
+          finalUsers.push(currentUser);
+        }
+        setUsers(finalUsers);
+      } catch (error) {
+        console.error('Failed to sync users:', error);
+      }
+    };
+    void syncUsers();
 
     return () => {
       disposed = true;
       clearInterval(timer);
     };
-  }, [currentUser, replaceObjectives]);
+  }, [mounted, currentUser, replaceObjectives, setUsers]);
+
+  if (!mounted) {
+    return null; // Or a loading spinner
+  }
 
   if (!currentUser) {
     return <Login />;

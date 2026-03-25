@@ -1,20 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { LayoutDashboard, HelpCircle, LogOut, Plus } from 'lucide-react';
+import { LayoutDashboard, HelpCircle, LogOut, Plus, PieChart } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { useOkrStore } from '../lib/store';
 import { useI18n } from '../lib/i18n';
 
 export default function Sidebar() {
+  const pathname = usePathname();
   const { setNewObjModalOpen } = useOkrStore();
   const { t } = useI18n();
+
+  const navItems = [
+    { href: '/okr', label: t('navExplorer'), icon: LayoutDashboard },
+    { href: '/leadership', label: t('navLeadership'), icon: PieChart },
+  ];
 
   return (
     <aside className="w-64 bg-[#FAFAFA] border-r border-gray-200 h-screen flex flex-col shrink-0 z-20">
       <div className="p-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#8B5F2E] rounded flex items-center justify-center text-white font-bold">
-            A
+          <div className="w-8 h-8 bg-[#8B5F2E] rounded flex items-center justify-center text-white font-bold transition-transform hover:scale-110 shadow-sm shadow-orange-900/20">
+            H
           </div>
           <div>
             <h1 className="font-bold text-gray-900 text-sm">{t('appTitle')}</h1>
@@ -23,16 +30,27 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 px-4 py-4 space-y-1">
-        <Link href="/" className="flex items-center gap-3 px-3 py-2.5 bg-white text-[#8B5F2E] font-medium rounded-md shadow-sm border border-gray-100 relative overflow-hidden group hover:brightness-95 transition-all">
-          <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8B5F2E]"></div>
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-sm">{t('navExplorer')}</span>
-        </Link>
-        <Link href="/leadership" className="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-50 rounded-md transition-colors">
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-sm">{t('navLeadership')}</span>
-        </Link>
+      <nav className="flex-1 px-3 py-4 space-y-1">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href || (item.href === '/okr' && pathname === '/');
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group relative ${
+                isActive
+                  ? 'bg-white text-[#8B5F2E] font-semibold shadow-sm border border-gray-100/50'
+                  : 'text-gray-500 hover:bg-gray-100/50 hover:text-gray-900'
+              }`}
+            >
+              {isActive && (
+                <div className="absolute left-0 top-2 bottom-2 w-1 bg-[#8B5F2E] rounded-r-full" />
+              )}
+              <item.icon className={`w-5 h-5 ${isActive ? 'text-[#8B5F2E]' : 'text-gray-400 group-hover:text-gray-600'}`} />
+              <span className="text-[13px] tracking-wide">{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-gray-200 bg-[#FAFAFA] space-y-4">
