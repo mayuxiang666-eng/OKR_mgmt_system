@@ -2,13 +2,14 @@
 
 import { useOkrStore } from '../../../lib/store';
 import { notFound } from 'next/navigation';
-import { Target, ArrowLeft, Calendar, User, AlignLeft, AlertTriangle, Plus, Trash, CheckCircle2, ChevronRight, Edit3, Save, X, Download, ExternalLink, Clock, History, TrendingUp, MessageSquare } from 'lucide-react';
+import { Target, ArrowLeft, Calendar, User, AlignLeft, AlertTriangle, Plus, Trash, CheckCircle2, ChevronRight, Edit3, Save, X, Download, ExternalLink, Clock, History, TrendingUp, MessageSquare, Monitor } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '../../../lib/utils';
 import { useState, useMemo, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import { KeyResult } from '../../../lib/types';
 import KRDetailModal from '../../../components/KRDetailModal';
+import PPTPreviewModal from '../../../components/PPTPreviewModal';
 import { useI18n } from '../../../lib/i18n';
 import { getObjective, createKeyResult, deleteKeyResult as deleteKeyResultRequest, updateKeyResult as updateKeyResultRequest, updateObjective as updateObjectiveRequest } from '../../../lib/api';
 import { encodeObjectiveMeta } from '../../../lib/objectiveDetails';
@@ -36,16 +37,42 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
     lastReviewDate: '',
     plannedNextReviewDate: '',
     reviewComment: '',
+    category: '', 
     isCrossOkr: false,
   });
+
+  const [isPreviewingPpt, setIsPreviewingPpt] = useState(false);
+
+  const handleExportPpt = async () => {
+    if (!obj) return;
+    try {
+      const res = await fetch('/api/export-ppt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(obj),
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const cleanTitle = (obj.title || 'OKR').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
+      a.href = url;
+      a.download = `OKR_Export_${cleanTitle}.pptx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(t('detailExportPptFailed'));
+    }
+  };
 
   // Checkin State
   const [newProgress, setNewProgress] = useState<number>(0);
   const [newStatus, setNewStatus] = useState<string>('In progress');
   const [comment, setComment] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingKrs, setIsSavingKrs] = useState(false);
   const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
 
   useEffect(() => {
     if (obj && !isEditingDetails) {
@@ -61,6 +88,7 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         lastReviewDate: obj.lastReviewDate || '',
         plannedNextReviewDate: obj.plannedNextReviewDate || '',
         reviewComment: obj.reviewComment || '',
+        category: obj.category || '',
         isCrossOkr: obj.category === 'Cross-OKR',
       });
     }
@@ -320,31 +348,20 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
              <span className="truncate max-w-sm">{obj.title}</span>
           </div>
         </div>
-        <button 
-          onClick={async () => {
-            try {
-              const res = await fetch('/api/export-ppt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(obj),
-              });
-              if (!res.ok) throw new Error('Export failed');
-              const blob = await res.blob();
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              const cleanTitle = (obj.title || 'OKR').replace(/[^a-zA-Z0-9]/g, '_').substring(0, 20);
-              a.href = url;
-              a.download = `OKR_Export_${cleanTitle}.pptx`;
-              a.click();
-              URL.revokeObjectURL(url);
-            } catch (e) {
-              alert(t('detailExportPptFailed'));
-            }
-          }}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-400 to-[#D97706] hover:from-orange-500 hover:to-orange-700 text-white font-bold rounded-lg shadow-sm hover:shadow-md transition-all">
-          <Download className="w-4 h-4" />
-          {t('detailExportPpt')}
-        </button>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsPreviewingPpt(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-orange-50 text-[#D97706] font-bold rounded-lg shadow-sm border border-orange-200 transition-all">
+            <Monitor className="w-4 h-4" />
+            {t('detailPreviewPpt')}
+          </button>
+          <button 
+            onClick={() => handleExportPpt()}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-400 to-[#D97706] hover:from-orange-500 hover:to-orange-700 text-white font-bold rounded-lg shadow-sm hover:shadow-md transition-all">
+            <Download className="w-4 h-4" />
+            {t('detailExportPpt')}
+          </button>
+        </div>
         </div>
 
         <div className="flex justify-between items-start gap-4 mb-10">
@@ -613,9 +630,45 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
                 <div>
                   <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">{t('assignedTo')}</p>
                   {isEditingDetails ? (
-                    <select value={localDetails.assignedTo} onChange={e => setLocalDetails({ ...localDetails, assignedTo: e.target.value })} className="w-full border rounded outline-none p-1.5 text-sm font-semibold">
-                      {users.map(u => <option key={u.id} value={u.displayName}>{u.displayName}</option>)}
-                    </select>
+                    <>
+                      <div className="relative mb-2 mt-2">
+                        <input 
+                          type="text"
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          placeholder="Search name..."
+                          className="w-full bg-white border border-gray-200 rounded-md py-1 px-3 text-xs focus:ring-1 focus:ring-orange-400 outline-none"
+                        />
+                      </div>
+                      <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-2 h-32 overflow-y-auto">
+                        {users.filter(u => u.displayName.toLowerCase().includes(userSearch.toLowerCase())).map(u => {
+                          const assignedList = (localDetails.assignedTo || '').split(' ; ').map(s => s.trim()).filter(Boolean);
+                          const isChecked = assignedList.includes(u.displayName);
+                          return (
+                            <label key={u.id} className="flex items-center gap-2 mb-1 p-1 hover:bg-gray-100 rounded cursor-pointer">
+                              <input 
+                                type="checkbox" 
+                                checked={isChecked} 
+                                onChange={(e) => {
+                                  let newList;
+                                  if (e.target.checked) {
+                                    newList = [...assignedList, u.displayName];
+                                  } else {
+                                    newList = assignedList.filter(name => name !== u.displayName);
+                                  }
+                                  setLocalDetails({ ...localDetails, assignedTo: newList.join(' ; ') });
+                                }} 
+                                className="rounded border-gray-300 text-[#D97706] focus:ring-[#D97706]"
+                              />
+                              <span className="text-sm font-medium text-gray-900">{u.displayName}</span>
+                            </label>
+                          );
+                        })}
+                        {users.filter(u => u.displayName.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                          <p className="text-[10px] text-gray-400 text-center py-2">No users found</p>
+                        )}
+                      </div>
+                    </>
                   ) : (
                     <p className="text-sm font-semibold flex items-center gap-2 text-gray-900"><User className="w-4 h-4 text-gray-400"/> {obj.assignedTo}</p>
                   )}
@@ -760,6 +813,13 @@ export default function ObjectiveDashboardPage({ params }: { params: { id: strin
         }}
       />
     )}
+      {isPreviewingPpt && obj && (
+        <PPTPreviewModal 
+          obj={obj} 
+          onClose={() => setIsPreviewingPpt(false)} 
+          onDownload={() => handleExportPpt()} 
+        />
+      )}
     </>
   );
 }

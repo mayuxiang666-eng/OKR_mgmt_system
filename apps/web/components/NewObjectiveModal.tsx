@@ -6,6 +6,7 @@ import { X, Plus, Trash, ChevronDown } from 'lucide-react';
 import { OkrCategory, OkrPriority } from '../lib/types';
 import { createKeyResult, createObjective } from '../lib/api';
 import { useI18n } from '../lib/i18n';
+import { encodeObjectiveMeta } from '../lib/objectiveDetails';
 
 export default function NewObjectiveModal() {
   const { objectives, isNewObjModalOpen, setNewObjModalOpen, addObjective, users, currentUser } = useOkrStore();
@@ -31,6 +32,7 @@ export default function NewObjectiveModal() {
   const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [isCrossOkr, setIsCrossOkr] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
   
   // Update default assignedTo when modal opens or currentUser changes
   useEffect(() => {
@@ -84,6 +86,15 @@ export default function NewObjectiveModal() {
 
       const finalCategory = isCrossOkr ? 'Cross-OKR' : category;
 
+      const metaDescription = encodeObjectiveMeta({
+        assignedTo: assignedTo.join(' ; '),
+        notes: '',
+        businessNeeds: '',
+        statusIndicators: '',
+        currentMonthFocus: '',
+        nextMonthFocus: '',
+      });
+
       const createdObjective = await createObjective({
         title: title.trim(),
         category: finalCategory,
@@ -91,7 +102,7 @@ export default function NewObjectiveModal() {
         startDate: effectiveStartDate,
         dueDate: effectiveDueDate,
         ownerUserId,
-        notes: '',
+        description: metaDescription,
       });
 
       const validKrs = krs.filter((kr) => kr.title.trim() !== '');
@@ -197,8 +208,17 @@ export default function NewObjectiveModal() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="md:col-span-2">
                 <label className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1.5 block">Assigned To (Multi-Select)</label>
+                <div className="relative mb-2">
+                  <input 
+                    type="text"
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    placeholder="Search name..."
+                    className="w-full bg-white border border-gray-200 rounded-md py-1.5 px-3 text-xs focus:ring-1 focus:ring-orange-400 outline-none"
+                  />
+                </div>
                 <div className="w-full bg-gray-50 border border-gray-200 rounded-md p-2 h-24 overflow-y-auto">
-                  {users.map(u => (
+                  {users.filter(u => u.displayName.toLowerCase().includes(userSearch.toLowerCase())).map(u => (
                     <label key={u.id} className="flex items-center gap-2 mb-1 p-1 hover:bg-gray-100 rounded cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -212,6 +232,9 @@ export default function NewObjectiveModal() {
                       <span className="text-sm font-medium text-gray-900">{u.displayName}</span>
                     </label>
                   ))}
+                  {users.filter(u => u.displayName.toLowerCase().includes(userSearch.toLowerCase())).length === 0 && (
+                    <p className="text-[10px] text-gray-400 text-center py-2">No users found</p>
+                  )}
                 </div>
               </div>
               <div className="md:col-span-1">

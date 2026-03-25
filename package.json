@@ -11,7 +11,7 @@
     "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "cd apps/api && npx ts-node-dev --respawn --transpile-only src/main.ts",
     "dev:web": "cd apps/web && npx next dev",
-    "build": "cd apps/api && npx tsc -p tsconfig.json && cd ../web && npx next build",
+    "build": "cd apps/api && npx tsc -p tsconfig.json && cd ../web && set NEXT_TELEMETRY_DISABLED=1 && npx next build",
     "lint": "cd apps/api && echo 'lint' && cd ../web && npx next lint",
     "format": "cd apps/api && echo 'format' && cd ../web && echo 'format'",
     "prisma:generate": "cd apps/api && npx prisma generate"

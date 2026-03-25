@@ -421,11 +421,35 @@ export default function OKRExplorer() {
                     </div>
                     <div className="flex items-center gap-6 shrink-0">
                       <div className="text-right">
-                        <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">ASSIGNED TO</p>
+                        <p className="text-[10px] font-bold text-gray-400 tracking-wider uppercase mb-1">{t('assignedTo')}</p>
                         <div className="flex items-center gap-2 justify-end">
-                          <span className="text-sm font-medium">{obj.assignedTo}</span>
-                          <div className="w-6 h-6 bg-gray-800 rounded-full text-white flex justify-center items-center text-xs font-bold uppercase shrink-0">
-                            {obj.assignedTo.charAt(0) || '?'}
+                          <div className="flex flex-col items-end">
+                            {(() => {
+                              // Split by standard semicolon, OR just a single owner name if no semicolon exists.
+                              // Using a more robust split that handles variations in spacing.
+                              const assignedStr = obj.assignedTo || '';
+                              const owners = assignedStr.split(/\s*;\s*/).map(s => s.trim()).filter(Boolean);
+                              
+                              return (
+                                <>
+                                  <div className="flex -space-x-2 mb-1">
+                                    {owners.slice(0, 4).map((owner, i) => (
+                                      <div key={i} title={owner} className="w-6 h-6 bg-gray-800 border-2 border-white rounded-full text-white flex justify-center items-center text-[10px] font-bold uppercase shrink-0 shadow-sm transition-transform hover:z-10 hover:scale-110">
+                                        {owner.charAt(0)}
+                                      </div>
+                                    ))}
+                                    {owners.length > 4 && (
+                                      <div className="w-6 h-6 bg-gray-200 border-2 border-white rounded-full text-gray-600 flex justify-center items-center text-[8px] font-bold shrink-0 shadow-sm">
+                                        +{owners.length - 4}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] font-semibold text-gray-600 truncate max-w-[150px]" title={obj.assignedTo}>
+                                    {obj.assignedTo}
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       </div>

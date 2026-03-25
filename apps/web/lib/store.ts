@@ -46,7 +46,19 @@ export const useOkrStore = create<OkrState>((set) => {
   objectives: mockObjectives,
   users: [],
   currentUser: (typeof window !== 'undefined' && window.localStorage.getItem('okr_user')) 
-    ? JSON.parse(window.localStorage.getItem('okr_user')!) 
+    ? (() => {
+        const raw = window.localStorage.getItem('okr_user');
+        try {
+          return JSON.parse(raw!);
+        } catch (e) {
+          console.warn('Malformed user data in localStorage, clearing session.');
+          if (typeof window !== 'undefined') {
+            window.localStorage.removeItem('okr_user');
+            window.localStorage.removeItem('okr_token');
+          }
+          return null;
+        }
+      })() 
     : null,
   token: initialToken,
   searchQuery: '',

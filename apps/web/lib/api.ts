@@ -41,6 +41,7 @@ export interface CreateObjectiveInput {
   dueDate?: string;
   notes?: string;
   ownerUserId?: string;
+  description?: string;
 }
 
 export interface UpdateObjectiveInput {

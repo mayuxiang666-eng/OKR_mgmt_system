@@ -69,6 +69,7 @@ const messages = {
 
     detailBackToExplorer: '\u8fd4\u56de\u603b\u89c8',
     detailExportPpt: '\u5bfc\u51fa PPT',
+    detailPreviewPpt: '\u9884\u89c8 PPT',
     detailExportPptFailed: 'PPT \u5bfc\u51fa\u5931\u8d25\uff0c\u8bf7\u91cd\u8bd5\u3002',
     detailBusinessNeeds: '\u4e1a\u52a1\u9700\u6c42',
     detailExecutionProgress: '\u6267\u884c\u8fdb\u5ea6',
@@ -207,6 +208,7 @@ const messages = {
     deleteFailed: 'Failed to delete objective from database',
     detailBackToExplorer: 'Back to Explorer',
     detailExportPpt: 'Export to PPT',
+    detailPreviewPpt: 'Preview PPT',
     detailExportPptFailed: 'PPT export failed. Please try again.',
     detailBusinessNeeds: 'Business Needs',
     detailExecutionProgress: 'Execution Progress',

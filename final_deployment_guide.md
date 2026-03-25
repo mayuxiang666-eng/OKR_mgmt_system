@@ -68,7 +68,7 @@ npx prisma db push
 # 1. 登堂退回根目录
 cd ..\..
 
-# 2. 对 NestJS 后端和 Next.js 前端应用进行双倍提纯和精简压缩
+# 2. 对 NestJS 后端 and Next.js 前端应用进行双倍提纯和精简压缩
 npm run build
 ```
 
@@ -109,9 +109,9 @@ nssm start OkrWebFrontend
 ---
 
 ## 💡 附录核心：以后的日常升级与发版流程
-如果您以后接手了这个项目的长期维护，需要把本地改好的新功能（比如新页面、新接口）发布到这台 Windows 服务器上，这是一个非常标准的、“机械化”的 5 步流水线操作：
+如果您以后接手了这个项目的长期维护，需要把本地改好的新功能（比如新页面、新接口）发布到这台 Windows 服务器上，这是一个非常标准的、“机械化”的 6 步流水线操作：
 
-### 🔄 日常更新的全自动 5 步曲：
+### 🔄 日常更新的全自动 6 步曲：
 
 #### 1. 将新代码放入服务器
 把您写好的新代码（或者直接在 GitHub 上 `git pull`）覆盖掉服务器上 `c:\APPs\project\OKR_mgmt_system` 里旧的源码文件夹。
@@ -138,20 +138,45 @@ cd ..\..
 ```
 *(如果您只是前端页面改了个按钮颜色，后端没加新表，这一步可以直接跳过！)*
 
-#### 4. 全栈强行粉碎重生（必做核心）
-在根目录敲入最熟悉的打包指令：
+#### 4. 暂时切断动力（重要：防止 Windows 文件锁死造成编译卡死）
+在 Windows 上，如果旧版程序正在运行，它会锁死编译目录。**必须**先停掉服务：
+```powershell
+nssm stop OkrApiBackend
+nssm stop OkrWebFrontend
+```
+
+#### 5. 全栈强行粉碎重生（必做核心）
+在根目录敲入指令：
 ```powershell
 npm run build
 ```
-*(这一行代码会把您这次上传的所有乱糟糟的源码，像绞肉机一样重新绞碎、压缩、提纯，最后输出成一份全新的纯净生产体压缩包放在各个 `.next` 和 `dist` 里。)*
+*(这一行代码会把源码重新打包。如果报错提示文件夹不可用，请手动删除 `apps/web/.next` 目录。)*
 
-#### 5. 让后台服务重新苏醒加载新代码（必做封顶）
-那些 NSSM 托管的后台服务，它们之前加载进内存的老代码不会自己更新。您只需一键重启它们：
+**⚠️ 重中之重：资源同步（仅针对 Standalone 模式）**
+Next.js 的独立包模式不包含静态资源。构建完成后，必须手动或用脚本同步 `static` 和 `public` 文件夹，否则页面会失去样式（CSS 丢失）：
 ```powershell
-nssm restart OkrApiBackend
-nssm restart OkrWebFrontend
+# 将编译好的静态资源复制到独立部署包的对应路径下
+xcopy /E /I /Y "apps\web\.next\static" "apps\web\.next\standalone\apps\web\.next\static"
+xcopy /E /I /Y "apps\web\public" "apps\web\.next\standalone\apps\web\public"
 ```
+#### 6. 让后台服务重新苏醒（必做封顶）
+最后，把服务重新启动以加载新代码：
+```powershell
+nssm start OkrApiBackend
+nssm start OkrWebFrontend
+``````
 
-----
-**🎉 大功告成！**
-等重启完毕，您去浏览器强刷一把，您的全新改版按钮就能瞬间耀眼地出现在页面上啦！以后任何的小修小补或者大版本迭代，您就闭着眼睛跟着这 5 步走，绝对稳如老狗！🐶
+---
+
+## 🆘 常见故障排除 (Troubleshooting)
+
+### 1. 启动异常：Unexpected token 'M'...is not valid JSON
+*   **现象**：浏览器打开后白屏，F12 控制台报错。
+*   **原因**：浏览器缓存了旧版本的登录信息（纯字符串），导致无法被新版系统正确解析。
+*   **解决**：
+    1.  手动清理浏览器缓存：按下 `F12` -> `Application` -> `Local Storage` -> 选中网址 -> 右键 `Clear`。
+    2.  或者：我已经更新了 `store.ts` 代码，系统检测到异常会自动清除并强制重新登录。
+
+### 2. 页面“支离破碎”：CSS 样式丢失
+*   **现象**：网页只有纯文本，没有任何排版。
+*   **解决**：务必确认上述 **Step 5** 中的 `xcopy` 命令执行成功，确保 `.next/standalone/apps/web/.next/static` 路径下有内容。

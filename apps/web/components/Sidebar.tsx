@@ -12,7 +12,7 @@ export default function Sidebar() {
   const { t } = useI18n();
 
   const navItems = [
-    { href: '/okr', label: t('navExplorer'), icon: LayoutDashboard },
+    { href: '/', label: t('navExplorer'), icon: LayoutDashboard },
     { href: '/leadership', label: t('navLeadership'), icon: PieChart },
   ];
 

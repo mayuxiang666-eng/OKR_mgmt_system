@@ -131,14 +131,8 @@ export class OkrService {
       include: { keyResults: true },
     });
     
-    if (objective.ownerUserId) {
-      await this.notificationService.create({
-        userId: objective.ownerUserId,
-        title: 'New OKR Assigned',
-        message: `You have been assigned as the owner of "${objective.title}"`,
-        type: 'assignment',
-        link: `/objective/${objective.id}`,
-      });
+    if (objective.ownerUserId || objective.description) {
+      await this.notifyAssignees(objective, 'New OKR Assigned', `You have been assigned to "${objective.title}"`);
     }
 
     return objective;
@@ -193,14 +187,8 @@ export class OkrService {
       },
     });
 
-    if (updated.ownerUserId) {
-      await this.notificationService.create({
-        userId: updated.ownerUserId,
-        title: 'OKR Updated',
-        message: `The OKR "${updated.title}" has been updated.`,
-        type: 'modification',
-        link: `/objective/${updated.id}`,
-      });
+    if (updated.ownerUserId || updated.description) {
+      await this.notifyAssignees(updated, 'OKR Updated', `The OKR "${updated.title}" has been updated.`);
     }
 
     return updated;
@@ -275,6 +263,14 @@ export class OkrService {
     });
 
     await this.refreshObjectiveProgress(input.objectiveId);
+    
+    // Notify all assigned users
+    try {
+      await this.notifyAssignees(objective, 'KR Added', `New Key Result "${created.title}" was added to "${objective.title}"`);
+    } catch (e) {
+      console.error('[OkrService] Failed to send creation notification:', e);
+    }
+
     return created;
   }
 
@@ -320,6 +316,15 @@ export class OkrService {
     });
 
     await this.refreshObjectiveProgress(existing.objectiveId);
+    
+    // Notify all assigned users
+    try {
+      const objective = await this.getObjective(existing.objectiveId);
+      await this.notifyAssignees(objective, 'KR Updated', `Key Result "${updated.title}" within "${objective.title}" was modified.`);
+    } catch (e) {
+      console.error('[OkrService] Failed to send update notification:', e);
+    }
+    
     return updated;
   }
 
@@ -332,6 +337,15 @@ export class OkrService {
     await this.prisma.initiative.deleteMany({ where: { krId: id } });
     await this.prisma.keyResult.delete({ where: { id } });
     await this.refreshObjectiveProgress(existing.objectiveId);
+    
+    // Notify all assigned users
+    try {
+      const objective = await this.getObjective(existing.objectiveId);
+      await this.notifyAssignees(objective, 'KR Deleted', `A Key Result was removed from "${objective.title}".`);
+    } catch (e) {
+      console.error('[OkrService] Failed to send delete notification:', e);
+    }
+
     return { id, deleted: true };
   }
 
@@ -517,6 +531,48 @@ export class OkrService {
       },
     });
   }
+
+  private async notifyAssignees(objective: any, title: string, message: string) {
+    const description = objective.description || '';
+    const PREFIX = 'OKR_META_V1:';
+    let assignedNames: string[] = [];
+
+    if (description.startsWith(PREFIX)) {
+      try {
+        const raw = description.slice(PREFIX.length);
+        const meta = JSON.parse(raw);
+        if (meta.assignedTo) {
+          assignedNames = meta.assignedTo.split(/\s*;\s*/).map((s: string) => s.trim()).filter(Boolean);
+        }
+      } catch (e) {}
+    }
+
+    const uniqueUserIds = new Set<string>();
+    if (objective.ownerUserId) uniqueUserIds.add(objective.ownerUserId);
+
+    if (assignedNames.length > 0) {
+      const matchedUsers = await this.prisma.user.findMany({
+        where: {
+          orgId: objective.orgId,
+          displayName: { in: assignedNames }
+        },
+        select: { id: true }
+      });
+      matchedUsers.forEach(u => uniqueUserIds.add(u.id));
+    }
+
+    const type = title.includes('New') || title.includes('Added') ? 'assignment' : 'modification';
+
+    const createPromises = Array.from(uniqueUserIds).map(userId => 
+      this.notificationService.create({
+        userId,
+        title,
+        message,
+        type,
+        link: `/objective/${objective.id}`,
+      }).catch(err => console.error(`[OkrService] Failed to notify user ${userId}:`, err))
+    );
+
+    await Promise.all(createPromises);
+  }
 }
-
-
